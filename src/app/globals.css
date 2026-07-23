@@ -4,15 +4,15 @@
   --background: #fff8e7;
   --foreground: #191510;
 
-  --color-primary: #ffde59;
-  --color-primary-dark: #e8c13a;
+  --color-primary: #fef3b0;
+  --color-primary-dark: #e0d485;
   --color-secondary: #e8734a;
-  --color-accent: #ffe46f;
+  --color-accent: #fef3b0;
   --color-mint: #61ce70;
   --color-cream: #fff8e7;
   --color-lavender: #fff3d0;
   --color-ink: #191510;
-  --color-bar: #b2fbaf;
+  --color-bar: #bfc9b3;
 }
 
 @theme inline {
