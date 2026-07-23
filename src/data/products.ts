@@ -57,6 +57,8 @@ type NicheConfig = {
   slug: string;
   category: string;
   imageFolder: string;
+  imagePoolSize?: number;
+  productCount?: number;
   priceRange: [number, number];
   moqOptions: number[];
   variantSets: Variant[];
@@ -257,6 +259,131 @@ const nicheConfigs: NicheConfig[] = [
     },
     descriptor: "belt",
   },
+  {
+    slug: "mens-shalwar-kameez",
+    category: "mens-shalwar-kameez",
+    imageFolder: "mens-shalwar-kameez",
+    imagePoolSize: 22,
+    productCount: 16,
+    priceRange: [2200, 6500],
+    moqOptions: [1, 5, 10],
+    variantSets: [
+      { label: "Size", options: ["S", "M", "L", "XL", "XXL"] },
+      { label: "Fabric", options: ["Cambric Cotton", "Wash & Wear", "Karandi", "Linen"] },
+    ],
+    nameParts: {
+      adjectives: ["Classic", "Embroidered", "Formal", "Casual", "Boski", "Chikankari", "Plain", "Designer"],
+      nouns: ["Shalwar Kameez", "Kurta Shalwar", "Kurta Set"],
+    },
+    descriptor: "stitched shalwar kameez",
+  },
+  {
+    slug: "womens-lawn-suits",
+    category: "womens-lawn-suits",
+    imageFolder: "womens-lawn-suits",
+    imagePoolSize: 30,
+    productCount: 18,
+    priceRange: [1800, 7500],
+    moqOptions: [1, 6, 12],
+    variantSets: [
+      { label: "Stitching", options: ["Unstitched", "Stitched (+ tailoring)"] },
+      { label: "Size", options: ["Small", "Medium", "Large", "Free Size (Unstitched)"] },
+    ],
+    nameParts: {
+      adjectives: ["Embroidered", "Printed", "Digital Print", "Chikankari", "Khaddar", "Festive", "Bridal", "Casual", "Premium"],
+      nouns: ["Lawn Suit", "3-Piece Suit", "Unstitched Suit"],
+    },
+    descriptor: "unstitched 3-piece lawn suit",
+  },
+  {
+    slug: "kids-traditional-wear",
+    category: "kids-traditional-wear",
+    imageFolder: "kids-traditional-wear",
+    imagePoolSize: 29,
+    productCount: 16,
+    priceRange: [1200, 3800],
+    moqOptions: [3, 10, 20],
+    variantSets: [
+      { label: "Age", options: ["1-2 yrs", "3-4 yrs", "5-6 yrs", "7-8 yrs", "9-10 yrs"] },
+      { label: "Fabric", options: ["Cotton", "Lawn", "Silk Blend"] },
+    ],
+    nameParts: {
+      adjectives: ["Mini", "Embroidered", "Festive", "Boys", "Girls", "Printed", "Party-Wear", "Everyday"],
+      nouns: ["Shalwar Kameez", "Kurta Set", "Frock", "Ethnic Set"],
+    },
+    descriptor: "kids' traditional outfit",
+  },
+  {
+    slug: "kitchen-storage",
+    category: "kitchen-storage",
+    imageFolder: "kitchen-storage",
+    imagePoolSize: 15,
+    productCount: 9,
+    priceRange: [400, 2200],
+    moqOptions: [5, 12, 24],
+    variantSets: [
+      { label: "Material", options: ["BPA-Free Plastic", "Glass", "Stainless Steel"] },
+      { label: "Size", options: ["Small", "Medium", "Large", "Set of 3"] },
+    ],
+    nameParts: {
+      adjectives: ["Airtight", "Stackable", "Transparent", "Minimalist", "Space-Saving", "Leak-Proof"],
+      nouns: ["Storage Container", "Jar Set", "Organizer Box", "Spice Rack"],
+    },
+    descriptor: "kitchen storage piece",
+  },
+  {
+    slug: "stationery-desk",
+    category: "stationery-desk",
+    imageFolder: "stationery-desk",
+    imagePoolSize: 15,
+    productCount: 9,
+    priceRange: [250, 1500],
+    moqOptions: [6, 12, 24],
+    variantSets: [
+      { label: "Color", options: ["Pastel Pink", "Sage Green", "Cream", "Lavender", "Multicolor"] },
+    ],
+    nameParts: {
+      adjectives: ["Cute", "Minimalist", "Aesthetic", "Compact", "Pastel", "Kawaii"],
+      nouns: ["Desk Organizer", "Notebook Set", "Sticky Note Pack", "Pen Holder"],
+    },
+    descriptor: "desk accessory",
+  },
+  {
+    slug: "bathroom-accessories",
+    category: "bathroom-accessories",
+    imageFolder: "bathroom-accessories",
+    imagePoolSize: 15,
+    productCount: 9,
+    priceRange: [500, 2800],
+    moqOptions: [5, 12, 20],
+    variantSets: [
+      { label: "Material", options: ["Ceramic", "Bamboo", "Stainless Steel", "Silicone"] },
+      { label: "Color", options: ["White", "Black", "Natural Wood", "Pastel"] },
+    ],
+    nameParts: {
+      adjectives: ["Minimalist", "Compact", "Freestanding", "Wall-Mounted", "Rustic", "Modern"],
+      nouns: ["Soap Dispenser", "Storage Caddy", "Organizer Set", "Accessory Tray"],
+    },
+    descriptor: "bathroom accessory",
+  },
+  {
+    slug: "bedsheets",
+    category: "bedsheets",
+    imageFolder: "bedsheets",
+    imagePoolSize: 15,
+    productCount: 9,
+    priceRange: [1500, 5500],
+    moqOptions: [3, 8, 15],
+    variantSets: [
+      { label: "Size", options: ["Single", "Double", "Queen", "King"] },
+      { label: "Material", options: ["Cotton", "Egyptian Cotton", "Microfiber", "Silk Blend"] },
+    ],
+    nameParts: {
+      adjectives: ["Printed", "Plain Dyed", "Embroidered", "Striped", "Floral", "Minimalist"],
+      nouns: ["Bedsheet Set", "Fitted Sheet Set", "Duvet Cover Set", "Bedding Set"],
+    },
+    descriptor: "bedsheet set",
+  },
 ];
 
 const descriptionTemplates = [
@@ -313,7 +440,7 @@ function generateProductsForNiche(config: NicheConfig, count: number): Product[]
           "Ships from Karachi, Pakistan — nationwide delivery",
           "7-day easy return on unused items",
         ],
-        images: imagesFor(config.imageFolder, 5, productIndex * 3),
+        images: imagesFor(config.imageFolder, 5, productIndex * 3, config.imagePoolSize ?? 15),
         tiers,
         moq,
         variants: config.variantSets,
@@ -333,7 +460,7 @@ function generateProductsForNiche(config: NicheConfig, count: number): Product[]
 }
 
 export const products: Product[] = nicheConfigs.flatMap((config) =>
-  generateProductsForNiche(config, 9)
+  generateProductsForNiche(config, config.productCount ?? 9)
 );
 
 export function getProduct(slug: string) {
