@@ -59,7 +59,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+    } catch {
+      // storage unavailable (private browsing, quota exceeded, etc.) — cart still works for this session
+    }
   }, [lines, hydrated]);
 
   function addToCart(productSlug: string, variantKey: string, variantLabel: string, qty: number) {

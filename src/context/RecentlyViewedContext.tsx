@@ -29,7 +29,11 @@ export function RecentlyViewedProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(slugs));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(slugs));
+    } catch {
+      // storage unavailable — recently-viewed still works for this session
+    }
   }, [slugs, hydrated]);
 
   function addRecentlyViewed(slug: string) {

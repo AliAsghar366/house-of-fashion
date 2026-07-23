@@ -32,7 +32,11 @@ export function CompareProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(slugs));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(slugs));
+    } catch {
+      // storage unavailable — compare list still works for this session
+    }
   }, [slugs, hydrated]);
 
   function toggleCompare(slug: string) {

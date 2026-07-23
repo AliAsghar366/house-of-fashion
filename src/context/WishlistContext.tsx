@@ -28,7 +28,11 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(slugs));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(slugs));
+    } catch {
+      // storage unavailable — wishlist still works for this session
+    }
   }, [slugs, hydrated]);
 
   function toggleWishlist(slug: string) {
