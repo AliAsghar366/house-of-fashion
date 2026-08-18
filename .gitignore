@@ -69,6 +69,8 @@ build/
 *.gz
 *.tgz
 *.mp4
+# Allow promo reels
+!public/reels/*.mp4
 *.mkv
 *.avi
 *.mov

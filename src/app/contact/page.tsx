@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MapPin, Phone, Mail, Clock, Send, Check } from "lucide-react";
+import { Phone, Mail, Clock, Send, Check } from "lucide-react";
 
 export default function ContactPage() {
   const [sent, setSent] = useState(false);
@@ -23,16 +23,13 @@ export default function ContactPage() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         <div className="lg:col-span-2 space-y-4">
           <InfoCard
-            icon={<MapPin size={20} />}
-            title="Visit Us"
-            lines={["Shop 14, Zamzama Boulevard", "Phase 5, DHA, Karachi, Pakistan"]}
+            icon={<Phone size={20} />}
+            title="WhatsApp"
+            lines={["+92 312 0744554", "Chat with us anytime!"]}
+            href="https://wa.me/923120744554"
           />
-          <InfoCard icon={<Phone size={20} />} title="Call Us" lines={["+92 300 1234567", "+92 21 3587 4210"]} />
           <InfoCard icon={<Mail size={20} />} title="Email Us" lines={["hello@houseoffashion.pk", "support@houseoffashion.pk"]} />
           <InfoCard icon={<Clock size={20} />} title="Hours" lines={["Mon – Sat: 11am – 9pm", "Sunday: 1pm – 7pm"]} />
-          <p className="text-xs text-ink/55 px-1">
-            Placeholder contact details shown above — to be replaced with real store info.
-          </p>
         </div>
 
         <div className="lg:col-span-3">
@@ -76,8 +73,8 @@ export default function ContactPage() {
   );
 }
 
-function InfoCard({ icon, title, lines }: { icon: React.ReactNode; title: string; lines: string[] }) {
-  return (
+function InfoCard({ icon, title, lines, href }: { icon: React.ReactNode; title: string; lines: string[]; href?: string }) {
+  const content = (
     <div className="flex gap-3 rounded-lg border-2 border-ink/10 bg-white p-4">
       <div className="shrink-0 rounded-xl bg-primary/10 p-2.5 text-ink h-fit">{icon}</div>
       <div>
@@ -88,6 +85,15 @@ function InfoCard({ icon, title, lines }: { icon: React.ReactNode; title: string
       </div>
     </div>
   );
+
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="block hover:-translate-y-0.5 transition-transform">
+        {content}
+      </a>
+    );
+  }
+  return content;
 }
 
 function Field({

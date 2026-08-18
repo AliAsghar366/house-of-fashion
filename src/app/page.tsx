@@ -3,6 +3,7 @@ import { NicheGrid } from "@/components/NicheGrid";
 import { TrustBadges } from "@/components/TrustBadges";
 import { ProductGrid } from "@/components/ProductGrid";
 import { Newsletter } from "@/components/Newsletter";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { products } from "@/data/products";
 
 export default function Home() {
@@ -27,6 +28,7 @@ export default function Home() {
         viewAllHref="/shop?sort=newest"
       />
       <Newsletter />
+      <WhatsAppButton />
     </>
   );
 }

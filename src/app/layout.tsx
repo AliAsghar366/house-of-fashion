@@ -5,10 +5,13 @@ import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { CompareProvider } from "@/context/CompareContext";
 import { RecentlyViewedProvider } from "@/context/RecentlyViewedContext";
+import { OrderProvider } from "@/context/OrderContext";
+import { DynamicProductProvider } from "@/context/DynamicProductContext";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { CartDrawer } from "@/components/CartDrawer";
 import { CompareBar } from "@/components/CompareBar";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 
 const abril = Abril_Fatface({
   variable: "--font-abril",
@@ -39,19 +42,24 @@ export default function RootLayout({
       className={`${abril.variable} ${poppins.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-cream text-ink">
-        <CartProvider>
-          <WishlistProvider>
-            <CompareProvider>
-              <RecentlyViewedProvider>
-                <Header />
-                <main className="flex-1">{children}</main>
-                <Footer />
+        <OrderProvider>
+          <DynamicProductProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <CompareProvider>
+                  <RecentlyViewedProvider>
+                    <Header />
+                    <main className="flex-1">{children}</main>
+                    <Footer />
                 <CartDrawer />
                 <CompareBar />
-              </RecentlyViewedProvider>
-            </CompareProvider>
-          </WishlistProvider>
-        </CartProvider>
+                <WhatsAppButton />
+                  </RecentlyViewedProvider>
+                </CompareProvider>
+              </WishlistProvider>
+            </CartProvider>
+          </DynamicProductProvider>
+        </OrderProvider>
       </body>
     </html>
   );
