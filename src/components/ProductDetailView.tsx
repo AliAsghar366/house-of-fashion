@@ -34,7 +34,17 @@ export function ProductDetailView({ product }: { product: Product }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.slug]);
 
-  const unitPrice = useMemo(() => tieredUnitPrice(product.tiers, qty), [product.tiers, qty]);
+  // Look up variant-specific price if available
+  const variantPrice = useMemo(() => {
+    if (!product.variantPrices) return undefined;
+    // Check each selected option against variantPrices
+    for (const opt of Object.values(selectedOptions)) {
+      if (product.variantPrices[opt] !== undefined) return product.variantPrices[opt];
+    }
+    return undefined;
+  }, [product.variantPrices, selectedOptions]);
+
+  const unitPrice = useMemo(() => tieredUnitPrice(product.tiers, qty, variantPrice), [product.tiers, qty, variantPrice]);
   const total = unitPrice * qty;
   const variantKey = Object.values(selectedOptions).join("|") || "default";
   const variantLabel = Object.values(selectedOptions).join(" / ") || "Standard";
