@@ -14,6 +14,7 @@ import { CartDrawer } from "@/components/CartDrawer";
 import { CompareBar } from "@/components/CompareBar";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { CookieConsent } from "@/components/CookieConsent";
+import { PageTracker } from "@/components/PageTracker";
 
 const abril = Abril_Fatface({
   variable: "--font-abril",
@@ -56,8 +57,8 @@ export default function RootLayout({
                     <Footer />
                 <CartDrawer />
                 <CompareBar />
-                <WhatsAppButton />
-                <CookieConsent />
+                <WhatsAppButton />                    <CookieConsent />
+                    <PageTracker />
                   </RecentlyViewedProvider>
                 </CompareProvider>
               </WishlistProvider>

@@ -157,6 +157,32 @@ create policy "wishlists_select_own" on public.wishlists for select using (auth.
 create policy "wishlists_insert_own" on public.wishlists for insert with check (auth.uid() = user_id);
 create policy "wishlists_delete_own" on public.wishlists for delete using (auth.uid() = user_id);
 
+-- ─── 7. Page Views (Real-time Analytics) ─────────────────────
+create table if not exists public.page_views (
+  id uuid primary key default uuid_generate_v4(),
+  path text not null,
+  visitor_id text not null,
+  region text default 'Unknown',
+  city text default 'Unknown',
+  country text default 'Unknown',
+  device text default 'Unknown',
+  browser text default 'Unknown',
+  os text default 'Unknown',
+  referrer text default 'direct',
+  ip_hash text default '',
+  timestamp timestamptz not null default now()
+);
+
+alter table public.page_views enable row level security;
+
+-- Anyone can insert (track their own view)
+create policy "page_views_insert" on public.page_views for insert with check (true);
+
+-- Only admin can read analytics
+create policy "page_views_admin_read" on public.page_views for select using (
+  exists (select 1 from public.profiles where id = auth.uid() and is_admin = true)
+);
+
 -- ═══════════════════════════════════════════════════════════════
 -- INDEXES
 -- ═══════════════════════════════════════════════════════════════
@@ -169,3 +195,6 @@ create index if not exists idx_reviews_user on public.reviews(user_id);
 create index if not exists idx_tickets_user on public.support_tickets(user_id);
 create index if not exists idx_tickets_code on public.support_tickets(ticket_code);
 create index if not exists idx_wishlists_user on public.wishlists(user_id);
+create index if not exists idx_page_views_timestamp on public.page_views(timestamp);
+create index if not exists idx_page_views_path on public.page_views(path);
+create index if not exists idx_page_views_visitor on public.page_views(visitor_id);

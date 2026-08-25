@@ -1,41 +1,70 @@
-// Analytics tracking using localStorage and Navigator API
-// Tracks real page views, unique visitors, and region demographics
+// Real analytics tracking using Supabase + IP geolocation
+// Tracks actual page views from all visitors across all devices
 
-const ANALYTICS_KEY = "hof_analytics_v1";
-const SESSION_KEY = "hof_session_v1";
+import { supabase } from "@/lib/supabase";
+
 const VISITOR_ID_KEY = "hof_visitor_id";
+const GEO_CACHE_KEY = "hof_geo_cache";
 
+// ─── Types ──────────────────────────────────────────────────────
 export type PageView = {
+  id: string;
   path: string;
-  timestamp: number;
-  visitorId: string;
-  region?: string;
-  city?: string;
+  timestamp: string;
+  visitor_id: string;
+  region: string;
+  city: string;
+  country: string;
   device: string;
   browser: string;
+  os: string;
+  referrer: string;
+  ip_hash: string;
 };
 
 export type AnalyticsData = {
-  pageViews: PageView[];
-  uniqueVisitors: Set<string>;
   totalViews: number;
+  uniqueVisitors: number;
   regionCounts: Record<string, number>;
   cityCounts: Record<string, number>;
   deviceCounts: Record<string, number>;
   browserCounts: Record<string, number>;
+  osCounts: Record<string, number>;
   dailyViews: Record<string, number>;
+  topPages: { path: string; views: number }[];
+  hourlyViews: Record<string, number>;
+  referrerCounts: Record<string, number>;
 };
 
-function generateVisitorId(): string {
-  const existing = typeof window !== "undefined" ? localStorage.getItem(VISITOR_ID_KEY) : null;
-  if (existing) return existing;
-  const id = `v_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  if (typeof window !== "undefined") localStorage.setItem(VISITOR_ID_KEY, id);
-  return id;
+// ─── Visitor ID ─────────────────────────────────────────────────
+function getVisitorId(): string {
+  if (typeof window === "undefined") return "server";
+  try {
+    let id = localStorage.getItem(VISITOR_ID_KEY);
+    if (!id) {
+      id = `v_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(VISITOR_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    return `v_${Date.now()}`;
+  }
 }
 
+// ─── IP Hash (one-way, for unique visitor counting) ─────────────
+async function hashIp(ip: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(ip + "hof_salt_2024");
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 16);
+}
+
+// ─── Device Detection ───────────────────────────────────────────
 function getDevice(): string {
-  if (typeof navigator === "undefined") return "unknown";
+  if (typeof navigator === "undefined") return "Unknown";
   const ua = navigator.userAgent;
   if (/tablet|ipad/i.test(ua)) return "Tablet";
   if (/mobile|android|iphone/i.test(ua)) return "Mobile";
@@ -43,131 +72,194 @@ function getDevice(): string {
 }
 
 function getBrowser(): string {
-  if (typeof navigator === "undefined") return "unknown";
+  if (typeof navigator === "undefined") return "Unknown";
   const ua = navigator.userAgent;
-  if (/chrome/i.test(ua) && !/edge|edg/i.test(ua)) return "Chrome";
-  if (/firefox/i.test(ua)) return "Firefox";
-  if (/safari/i.test(ua) && !/chrome/i.test(ua)) return "Safari";
-  if (/edge|edg/i.test(ua)) return "Edge";
+  if (/chrome|crios/i.test(ua) && !/edg|edge/i.test(ua)) return "Chrome";
+  if (/firefox|fxios/i.test(ua)) return "Firefox";
+  if (/safari/i.test(ua) && !/chrome|crios/i.test(ua)) return "Safari";
+  if (/edg|edge/i.test(ua)) return "Edge";
+  if (/opera|opr/i.test(ua)) return "Opera";
   return "Other";
 }
 
-function loadPageViews(): PageView[] {
-  if (typeof window === "undefined") return [];
+function getOS(): string {
+  if (typeof navigator === "undefined") return "Unknown";
+  const ua = navigator.userAgent;
+  if (/windows/i.test(ua)) return "Windows";
+  if (/mac os/i.test(ua)) return "macOS";
+  if (/linux/i.test(ua)) return "Linux";
+  if (/android/i.test(ua)) return "Android";
+  if (/iphone|ipad|ipod/i.test(ua)) return "iOS";
+  return "Other";
+}
+
+// ─── IP Geolocation (free API, cached) ──────────────────────────
+type GeoData = { region: string; city: string; country: string };
+
+async function getGeoFromIp(): Promise<GeoData> {
+  if (typeof window === "undefined") return { region: "Unknown", city: "Unknown", country: "Unknown" };
+
+  // Check cache first (valid for 24 hours)
   try {
-    const raw = localStorage.getItem(ANALYTICS_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    const cached = localStorage.getItem(GEO_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.expiresAt > Date.now()) return parsed.data;
+    }
+  } catch {}
+
+  try {
+    // Use ipapi.co free tier (no API key needed, 1000 requests/day)
+    const res = await fetch("https://ipapi.co/json/", { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) throw new Error("Geo API failed");
+    const data = await res.json();
+
+    const geo: GeoData = {
+      region: data.region || data.region_code || "Unknown",
+      city: data.city || "Unknown",
+      country: data.country_name || "Unknown",
+    };
+
+    // Cache for 24 hours
+    try {
+      localStorage.setItem(GEO_CACHE_KEY, JSON.stringify({
+        data: geo,
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+      }));
+    } catch {}
+
+    return geo;
   } catch {
-    return [];
+    // Fallback: try ip-api.com
+    try {
+      const res = await fetch("http://ip-api.com/json/?fields=status,country,regionName,city", {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!res.ok) throw new Error("Fallback geo failed");
+      const data = await res.json();
+      if (data.status === "success") {
+        return { region: data.regionName || "Unknown", city: data.city || "Unknown", country: data.country || "Unknown" };
+      }
+    } catch {}
+    return { region: "Unknown", city: "Unknown", country: "Pakistan" };
   }
 }
 
-function savePageViews(views: PageView[]) {
+// ─── Track Page View ────────────────────────────────────────────
+export async function trackPageView(path: string): Promise<void> {
   if (typeof window === "undefined") return;
-  try {
-    // Keep only last 90 days of data
-    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
-    const filtered = views.filter((v) => v.timestamp > cutoff);
-    localStorage.setItem(ANALYTICS_KEY, JSON.stringify(filtered));
-  } catch {
-    // storage full, ignore
-  }
-}
-
-export function trackPageView(path: string): void {
-  if (typeof window === "undefined") return;
-
-  // Don't track admin pages
   if (path.startsWith("/admin")) return;
 
-  const visitorId = generateVisitorId();
-  const view: PageView = {
-    path,
-    timestamp: Date.now(),
-    visitorId,
-    device: getDevice(),
-    browser: getBrowser(),
-  };
+  try {
+    const visitorId = getVisitorId();
+    const geo = await getGeoFromIp();
 
-  const views = loadPageViews();
-  views.push(view);
-  savePageViews(views);
-}
-
-// Seed some realistic initial data for demo purposes
-export function seedAnalyticsData(): void {
-  if (typeof window === "undefined") return;
-  const existing = loadPageViews();
-  if (existing.length > 50) return; // Already seeded
-
-  const regions = ["Punjab", "Sindh", "KPK", "Balochistan", "Islamabad Capital", "Azad Kashmir", "Gilgit-Baltistan"];
-  const cities: Record<string, string[]> = {
-    Punjab: ["Lahore", "Faisalabad", "Rawalpindi", "Multan", "Gujranwala", "Sialkot"],
-    Sindh: ["Karachi", "Hyderabad", "Sukkur", "Larkana"],
-    KPK: ["Peshawar", "Mardan", "Abbottabad", "Swat"],
-    Balochistan: ["Quetta", "Gwadar", "Turbat"],
-    "Islamabad Capital": ["Islamabad"],
-    "Azad Kashmir": ["Muzaffarabad", "Mirpur", "Rawalakot"],
-    "Gilgit-Baltistan": ["Gilgit", "Hunza", "Skardu"],
-  };
-  const devices = ["Mobile", "Mobile", "Mobile", "Desktop", "Desktop", "Tablet"];
-  const browsers = ["Chrome", "Chrome", "Safari", "Firefox", "Edge"];
-  const paths = ["/", "/shop", "/shop/perfumes", "/shop/handbags", "/shop/jewelry", "/shop/womens-lawn-suits", "/shop/mens-shalwar-kameez", "/shop/cushions", "/shop/sunglasses", "/about", "/contact"];
-
-  const views: PageView[] = [];
-  const now = Date.now();
-
-  // Generate 500 realistic page views over last 30 days
-  for (let i = 0; i < 500; i++) {
-    const daysAgo = Math.floor(Math.random() * 30);
-    const hoursAgo = Math.floor(Math.random() * 24);
-    const region = regions[Math.floor(Math.random() * regions.length)];
-    const cityList = cities[region] || ["Unknown"];
-    const city = cityList[Math.floor(Math.random() * cityList.length)];
-
-    views.push({
-      path: paths[Math.floor(Math.random() * paths.length)],
-      timestamp: now - daysAgo * 86400000 - hoursAgo * 3600000,
-      visitorId: `seed_v${Math.floor(Math.random() * 200)}`,
-      region,
-      city,
-      device: devices[Math.floor(Math.random() * devices.length)],
-      browser: browsers[Math.floor(Math.random() * browsers.length)],
+    await supabase.from("page_views").insert({
+      path,
+      visitor_id: visitorId,
+      region: geo.region,
+      city: geo.city,
+      country: geo.country,
+      device: getDevice(),
+      browser: getBrowser(),
+      os: getOS(),
+      referrer: document.referrer || "direct",
     });
+  } catch {
+    // Silently fail — don't break the page for analytics
   }
-
-  const allViews = [...loadPageViews(), ...views];
-  savePageViews(allViews);
 }
 
-export function getAnalyticsSummary(): AnalyticsData {
-  const pageViews = loadPageViews();
-  const uniqueVisitorIds = new Set(pageViews.map((v) => v.visitorId));
-  const regionCounts: Record<string, number> = {};
-  const cityCounts: Record<string, number> = {};
-  const deviceCounts: Record<string, number> = {};
-  const browserCounts: Record<string, number> = {};
-  const dailyViews: Record<string, number> = {};
-
-  for (const view of pageViews) {
-    if (view.region) regionCounts[view.region] = (regionCounts[view.region] || 0) + 1;
-    if (view.city) cityCounts[view.city] = (cityCounts[view.city] || 0) + 1;
-    deviceCounts[view.device] = (deviceCounts[view.device] || 0) + 1;
-    browserCounts[view.browser] = (browserCounts[view.browser] || 0) + 1;
-
-    const date = new Date(view.timestamp).toISOString().split("T")[0];
-    dailyViews[date] = (dailyViews[date] || 0) + 1;
-  }
-
-  return {
-    pageViews,
-    uniqueVisitors: uniqueVisitorIds,
-    totalViews: pageViews.length,
-    regionCounts,
-    cityCounts,
-    deviceCounts,
-    browserCounts,
-    dailyViews,
+// ─── Get Analytics Summary ──────────────────────────────────────
+export async function getAnalyticsSummary(): Promise<AnalyticsData> {
+  const empty: AnalyticsData = {
+    totalViews: 0,
+    uniqueVisitors: 0,
+    regionCounts: {},
+    cityCounts: {},
+    deviceCounts: {},
+    browserCounts: {},
+    osCounts: {},
+    dailyViews: {},
+    topPages: [],
+    hourlyViews: {},
+    referrerCounts: {},
   };
+
+  try {
+    // Fetch last 90 days of page views
+    const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: views, error } = await supabase
+      .from("page_views")
+      .select("*")
+      .gte("timestamp", cutoff)
+      .order("timestamp", { ascending: false });
+
+    if (error || !views || views.length === 0) return empty;
+
+    const regionCounts: Record<string, number> = {};
+    const cityCounts: Record<string, number> = {};
+    const deviceCounts: Record<string, number> = {};
+    const browserCounts: Record<string, number> = {};
+    const osCounts: Record<string, number> = {};
+    const dailyViews: Record<string, number> = {};
+    const hourlyViews: Record<string, number> = {};
+    const pageCounts: Record<string, number> = {};
+    const referrerCounts: Record<string, number> = {};
+    const uniqueVisitors = new Set<string>();
+
+    for (const v of views) {
+      if (v.region && v.region !== "Unknown") regionCounts[v.region] = (regionCounts[v.region] || 0) + 1;
+      if (v.city && v.city !== "Unknown") cityCounts[v.city] = (cityCounts[v.city] || 0) + 1;
+      deviceCounts[v.device] = (deviceCounts[v.device] || 0) + 1;
+      browserCounts[v.browser] = (browserCounts[v.browser] || 0) + 1;
+      if (v.os) osCounts[v.os] = (osCounts[v.os] || 0) + 1;
+
+      const date = v.timestamp?.split("T")?.[0];
+      if (date) dailyViews[date] = (dailyViews[date] || 0) + 1;
+
+      const hour = v.timestamp ? new Date(v.timestamp).getHours().toString() : null;
+      if (hour !== null) hourlyViews[hour] = (hourlyViews[hour] || 0) + 1;
+
+      pageCounts[v.path] = (pageCounts[v.path] || 0) + 1;
+
+      if (v.referrer && v.referrer !== "direct") {
+        try {
+          const host = new URL(v.referrer).hostname;
+          referrerCounts[host] = (referrerCounts[host] || 0) + 1;
+        } catch {
+          referrerCounts[v.referrer] = (referrerCounts[v.referrer] || 0) + 1;
+        }
+      }
+
+      if (v.visitor_id) uniqueVisitors.add(v.visitor_id);
+    }
+
+    const topPages = Object.entries(pageCounts)
+      .map(([path, views]) => ({ path, views }))
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 10);
+
+    return {
+      totalViews: views.length,
+      uniqueVisitors: uniqueVisitors.size,
+      regionCounts,
+      cityCounts,
+      deviceCounts,
+      browserCounts,
+      osCounts,
+      dailyViews,
+      topPages,
+      hourlyViews,
+      referrerCounts,
+    };
+  } catch {
+    return empty;
+  }
+}
+
+// ─── Legacy compatibility ───────────────────────────────────────
+// These are no-ops but keep the admin page imports working
+export function seedAnalyticsData(): void {
+  // No longer needed — real data is tracked automatically
 }

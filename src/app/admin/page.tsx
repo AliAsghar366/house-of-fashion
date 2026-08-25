@@ -19,7 +19,7 @@ import {
 } from "@/context/DynamicProductContext";
 import { useAuth } from "@/context/AuthContext";
 import { formatPKR } from "@/lib/currency";
-import { getAnalyticsSummary, seedAnalyticsData } from "@/lib/analytics";
+import { getAnalyticsSummary, seedAnalyticsData, type AnalyticsData } from "@/lib/analytics";
 import { supabase as supabaseClient } from "@/lib/supabase";
 
 // Admin access is now verified server-side via Supabase is_admin flag
@@ -792,24 +792,28 @@ function CategoryForm({
 
 // ===================== ANALYTICS TAB =====================
 function AnalyticsTab() {
-  const [analytics, setAnalytics] = useState<ReturnType<typeof getAnalyticsSummary> | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
 
   useEffect(() => {
-    seedAnalyticsData();
-    setAnalytics(getAnalyticsSummary());
+    async function load() {
+      const data = await getAnalyticsSummary();
+      setAnalytics(data);
+    }
+    load();
   }, []);
 
-  // Refresh on mount
+  // Refresh every 30 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      setAnalytics(getAnalyticsSummary());
-    }, 5000);
+    const interval = setInterval(async () => {
+      const data = await getAnalyticsSummary();
+      setAnalytics(data);
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
   if (!analytics) return <div className="text-center py-10 text-[#191510]/50">Loading analytics...</div>;
 
-  const uniqueCount = analytics.uniqueVisitors.size;
+  const uniqueCount = analytics.uniqueVisitors;
   const regionEntries = Object.entries(analytics.regionCounts).sort((a, b) => b[1] - a[1]);
   const cityEntries = Object.entries(analytics.cityCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const deviceEntries = Object.entries(analytics.deviceCounts).sort((a, b) => b[1] - a[1]);
@@ -952,6 +956,76 @@ function AnalyticsTab() {
           </div>
         </div>
       </div>
+
+      {/* Top Pages & Referrers */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Top Pages */}
+        <div className="rounded-xl border-2 border-[#191510]/10 bg-white p-5">
+          <h3 className="font-semibold text-sm mb-4 flex items-center gap-2">
+            📄 Most Visited Pages
+          </h3>
+          <div className="space-y-2">
+            {(analytics.topPages || []).map((p, idx) => (
+              <div key={p.path} className="flex items-center justify-between py-1.5 border-b border-[#191510]/5 last:border-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#191510]/40 w-5">#{idx + 1}</span>
+                  <span className="text-sm font-mono font-semibold">{p.path}</span>
+                </div>
+                <span className="text-xs text-[#191510]/60">{p.views} views</span>
+              </div>
+            ))}
+            {(!analytics.topPages || analytics.topPages.length === 0) && (
+              <p className="text-xs text-[#191510]/40">No data yet</p>
+            )}
+          </div>
+        </div>
+
+        {/* Top Referrers */}
+        <div className="rounded-xl border-2 border-[#191510]/10 bg-white p-5">
+          <h3 className="font-semibold text-sm mb-4 flex items-center gap-2">
+            🔗 Top Referrers
+          </h3>
+          <div className="space-y-2">
+            {Object.entries(analytics.referrerCounts || {})
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 10)
+              .map(([host, count]) => (
+                <div key={host} className="flex items-center justify-between py-1.5 border-b border-[#191510]/5 last:border-0">
+                  <span className="text-sm font-semibold">{host}</span>
+                  <span className="text-xs text-[#191510]/60">{count} visits</span>
+                </div>
+              ))}
+            {Object.keys(analytics.referrerCounts || {}).length === 0 && (
+              <p className="text-xs text-[#191510]/40">No referrer data yet</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Hourly Traffic */}
+      {Object.keys(analytics.hourlyViews || {}).length > 0 && (
+        <div className="rounded-xl border-2 border-[#191510]/10 bg-white p-5">
+          <h3 className="font-semibold text-sm mb-4 flex items-center gap-2">
+            ⏰ Traffic by Hour (All Time)
+          </h3>
+          <div className="flex items-end gap-1 h-24">
+            {Array.from({ length: 24 }, (_, i) => {
+              const count = analytics.hourlyViews?.[i.toString()] || 0;
+              const maxH = Math.max(...Object.values(analytics.hourlyViews || {}), 1);
+              const height = (count / maxH) * 100;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                  <div className="w-full rounded-t bg-[#61ce70] transition-all" style={{ height: `${Math.max(height, 2)}%` }} />
+                  <span className="text-[8px] text-[#191510]/40">{i}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-[9px] text-[#191510]/30 mt-1">
+            <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>11 PM</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
