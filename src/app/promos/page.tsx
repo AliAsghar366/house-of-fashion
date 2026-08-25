@@ -1,156 +1,224 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Play, ArrowRight, ExternalLink, Download } from "lucide-react";
-import { categories } from "@/data/categories";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, Filter, Play, Download, ExternalLink, Grid3x3, LayoutList } from "lucide-react";
+import { REEL_TEMPLATES } from "@/data/reels";
+import { ReelPlayer } from "@/components/ReelPlayer";
 
-// 20+ promotional reel cards with different themes
-const PROMOS = [
-  { id: 1, title: "Summer Fragrances", subtitle: "Up to 30% off", emoji: "🌸", gradient: "from-pink-300 to-rose-200", category: "perfumes" },
-  { id: 2, title: "Handbag Drop", subtitle: "New arrivals weekly", emoji: "👜", gradient: "from-amber-200 to-yellow-100", category: "handbags" },
-  { id: 3, title: "Jewelry Sale", subtitle: "Statement pieces from Rs 800", emoji: "💎", gradient: "from-yellow-200 to-amber-100", category: "jewelry" },
-  { id: 4, title: "Cushion Collection", subtitle: "Cozy up this winter", emoji: "🛋️", gradient: "from-orange-200 to-amber-100", category: "cushions" },
-  { id: 5, title: "Sunglasses Week", subtitle: "UV400 protection", emoji: "🕶️", gradient: "from-gray-200 to-slate-100", category: "sunglasses" },
-  { id: 6, title: "Silk Scarves", subtitle: "Hand-rolled luxury", emoji: "🧣", gradient: "from-purple-200 to-pink-100", category: "scarves" },
-  { id: 7, title: "Leather Wallets", subtitle: "Genuine leather", emoji: "👛", gradient: "from-amber-300 to-orange-100", category: "wallets" },
-  { id: 8, title: "Hair Clips & Pins", subtitle: "Pearl & velvet", emoji: "🎀", gradient: "from-pink-200 to-rose-100", category: "hair-accessories" },
-  { id: 9, title: "Watch Collection", subtitle: "Minimalist to bold", emoji: "⌚", gradient: "from-gray-300 to-zinc-100", category: "watches" },
-  { id: 10, title: "Scented Candles", subtitle: "Set the mood", emoji: "🕯️", gradient: "from-orange-200 to-amber-50", category: "candles" },
-  { id: 11, title: "Decorative Vases", subtitle: "Sculptural pieces", emoji: "🏺", gradient: "from-rose-200 to-orange-50", category: "vases" },
-  { id: 12, title: "Premium Belts", subtitle: "Genuine leather", emoji: "👗", gradient: "from-amber-200 to-yellow-50", category: "belts" },
-  { id: 13, title: "Men's Shalwar Kameez", subtitle: "Classic & formal", emoji: "🧵", gradient: "from-green-200 to-emerald-50", category: "mens-shalwar-kameez" },
-  { id: 14, title: "Lawn Suits", subtitle: "Unstitched 3-piece", emoji: "🧶", gradient: "from-teal-200 to-cyan-50", category: "womens-lawn-suits" },
-  { id: 15, title: "Kids' Wear", subtitle: "Festival-ready outfits", emoji: "🧒", gradient: "from-blue-200 to-indigo-50", category: "kids-traditional-wear" },
-  { id: 16, title: "Kitchen Storage", subtitle: "Airtight & stackable", emoji: "🥡", gradient: "from-green-200 to-lime-50", category: "kitchen-storage" },
-  { id: 17, title: "Desk Stationery", subtitle: "Aesthetic essentials", emoji: "✏️", gradient: "from-purple-200 to-violet-50", category: "stationery-desk" },
-  { id: 18, title: "Bathroom Finds", subtitle: "Miniso-style upgrades", emoji: "🧴", gradient: "from-cyan-200 to-sky-50", category: "bathroom-accessories" },
-  { id: 19, title: "Bedsheet Sets", subtitle: "Sleep in luxury", emoji: "🛏️", gradient: "from-indigo-200 to-blue-50", category: "bedsheets" },
-  { id: 20, title: "Flash Sale", subtitle: "Up to 40% off", emoji: "🔥", gradient: "from-red-300 to-orange-100", category: "shop" },
-  { id: 21, title: "Free Shipping", subtitle: "Orders over Rs 5000", emoji: "🚚", gradient: "from-green-300 to-emerald-100", category: "shop" },
-  { id: 22, title: "New Arrivals", subtitle: "Just dropped this week", emoji: "✨", gradient: "from-yellow-200 to-amber-100", category: "shop" },
-  { id: 23, title: "Bulk Orders", subtitle: "Wholesale pricing available", emoji: "📦", gradient: "from-slate-200 to-gray-100", category: "shop" },
-  { id: 24, title: "Gift Ideas", subtitle: "Perfect for every occasion", emoji: "🎁", gradient: "from-pink-300 to-purple-100", category: "shop" },
-];
+const STYLES = ["all", "bold", "elegant", "playful", "minimal", "luxury", "vibrant", "dark", "pastel"] as const;
 
 export default function PromosPage() {
-  const [playingId, setPlayingId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const [styleFilter, setStyleFilter] = useState<string>("all");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [view, setView] = useState<"grid" | "list">("grid");
+
+  const filteredReels = useMemo(() => {
+    return REEL_TEMPLATES.filter((reel) => {
+      const matchSearch =
+        search === "" ||
+        reel.name.toLowerCase().includes(search.toLowerCase()) ||
+        reel.tagline.toLowerCase().includes(search.toLowerCase()) ||
+        reel.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()));
+      const matchStyle = styleFilter === "all" || reel.style === styleFilter;
+      return matchSearch && matchStyle;
+    });
+  }, [search, styleFilter]);
+
+  const expandedReel = expandedId !== null ? REEL_TEMPLATES.find((r) => r.id === expandedId) : null;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12">
-      <div className="text-center mb-10">
-        <h1 className="font-display text-4xl sm:text-5xl">Promotional Reels</h1>
-        <p className="mt-2 text-ink/60 max-w-lg mx-auto">
-          24 Instagram-ready promo cards — screen-record each one for a 20-second reel. Each card animates automatically with the website theme.
-        </p>
-        <p className="mt-2 text-xs text-ink/40">
-          Tip: Click any card to preview the animation. Screen-record at 1080×1920 for Instagram Reels.
-        </p>
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <motion.h1
+          className="font-display text-4xl sm:text-5xl lg:text-6xl"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          50 AI-Generated Reels
+        </motion.h1>
+        <motion.p
+          className="mt-3 text-ink/60 max-w-xl mx-auto text-sm sm:text-base"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          Professional promotional reels for your social media. Click any reel to preview the animation,
+          then export it as a video file — ready for Instagram, TikTok, or Facebook.
+        </motion.p>
+        <motion.div
+          className="flex items-center justify-center gap-4 mt-4 text-xs text-ink/40"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <span>📱 9:16 Portrait</span>
+          <span>•</span>
+          <span>🎬 3-4 Scenes Each</span>
+          <span>•</span>
+          <span>⬇️ Export as Video</span>
+        </motion.div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {PROMOS.map((promo, idx) => (
-          <motion.div
-            key={promo.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: idx * 0.03 }}
-          >
-            <div
-              onClick={() => setPlayingId(playingId === promo.id ? null : promo.id)}
-              className="cursor-pointer"
+      {/* Controls Bar */}
+      <motion.div
+        className="mb-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+      >
+        {/* Search */}
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+          <input
+            type="text"
+            placeholder="Search reels... (e.g. sale, eid, jewelry)"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border-2 border-ink/10 bg-white pl-9 pr-4 py-2.5 text-sm text-ink placeholder:text-ink/30 focus:outline-none focus:border-secondary transition-colors"
+          />
+        </div>
+
+        {/* Style filter pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+          {STYLES.map((style) => (
+            <button
+              key={style}
+              onClick={() => setStyleFilter(style)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold capitalize whitespace-nowrap transition-all ${
+                styleFilter === style
+                  ? "bg-ink text-cream shadow-md"
+                  : "bg-white text-ink/60 border border-ink/10 hover:border-ink/30"
+              }`}
             >
-              {/* Reel Card (9:16 aspect ratio for Instagram) */}
+              {style}
+            </button>
+          ))}
+        </div>
+
+        {/* View toggle */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setView("grid")}
+            className={`p-2 rounded-lg transition-colors ${view === "grid" ? "bg-ink text-cream" : "bg-white text-ink/40 hover:text-ink/60"}`}
+          >
+            <Grid3x3 size={16} />
+          </button>
+          <button
+            onClick={() => setView("list")}
+            className={`p-2 rounded-lg transition-colors ${view === "list" ? "bg-ink text-cream" : "bg-white text-ink/40 hover:text-ink/60"}`}
+          >
+            <LayoutList size={16} />
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Results count */}
+      <div className="mb-4 text-xs text-ink/40 font-medium">
+        Showing {filteredReels.length} of {REEL_TEMPLATES.length} reels
+      </div>
+
+      {/* Grid / List */}
+      {view === "grid" ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+          {filteredReels.map((reel, idx) => (
+            <motion.div
+              key={reel.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: idx * 0.02 }}
+              onClick={() => setExpandedId(reel.id)}
+            >
+              <ReelPlayer reel={reel} />
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredReels.map((reel, idx) => (
+            <motion.div
+              key={reel.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: idx * 0.02 }}
+              onClick={() => setExpandedId(reel.id)}
+              className="flex items-center gap-4 rounded-xl border-2 border-ink/10 bg-white p-3 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group"
+            >
+              {/* Mini thumbnail */}
               <div
-                className={`relative rounded-xl overflow-hidden aspect-[9/16] bg-gradient-to-b ${promo.gradient} border-2 border-ink/10 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all group`}
+                className={`w-16 h-28 rounded-lg bg-gradient-to-b ${reel.scenes[0].bg} flex items-center justify-center flex-shrink-0 relative overflow-hidden`}
               >
-                {/* Animated background pattern */}
-                <div className="absolute inset-0 overflow-hidden">
-                  <motion.div
-                    className="absolute top-0 left-0 w-full h-full opacity-10"
-                    animate={playingId === promo.id ? {
-                      backgroundPosition: ["0% 0%", "100% 100%"],
-                    } : {}}
-                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                    style={{
-                      backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(0,0,0,0.1) 20px, rgba(0,0,0,0.1) 40px)",
-                      backgroundSize: "200% 200%",
-                    }}
-                  />
-                </div>
-
-                {/* Content */}
-                <div className="relative h-full flex flex-col items-center justify-between p-4 text-center">
-                  <motion.span
-                    className="text-6xl"
-                    animate={playingId === promo.id ? {
-                      scale: [1, 1.2, 1],
-                      rotate: [0, 5, -5, 0],
-                    } : {}}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  >
-                    {promo.emoji}
-                  </motion.span>
-
-                  <div>
-                    <motion.h3
-                      className="font-display text-xl text-ink leading-tight"
-                      animate={playingId === promo.id ? { y: [0, -5, 0] } : {}}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      {promo.title}
-                    </motion.h3>
-                    <p className="text-sm text-ink/70 mt-1 font-semibold">{promo.subtitle}</p>
-                  </div>
-
-                  <Link
-                    href={promo.category === "shop" ? "/shop" : `/shop/${promo.category}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="inline-flex items-center gap-1 rounded-full bg-ink text-cream px-4 py-2 text-xs font-bold hover:bg-ink/85 transition-colors"
-                  >
-                    Shop Now <ArrowRight size={12} />
-                  </Link>
-                </div>
-
-                {/* Play/Pause indicator */}
-                <div className="absolute top-2 right-2">
-                  <div className="rounded-full bg-ink/50 p-1.5">
-                    {playingId === promo.id ? (
-                      <div className="w-3 h-3 flex gap-0.5">
-                        <div className="w-1 h-3 bg-white rounded-full" />
-                        <div className="w-1 h-3 bg-white rounded-full" />
-                      </div>
-                    ) : (
-                      <Play size={12} className="text-white" />
-                    )}
-                  </div>
-                </div>
-
-                {/* Reel number */}
-                <div className="absolute top-2 left-2">
-                  <span className="rounded-full bg-ink/50 px-2 py-0.5 text-[10px] font-bold text-white">
-                    #{promo.id}
-                  </span>
+                <span className="text-2xl">{reel.scenes[0].emoji}</span>
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Play size={16} className="text-white" />
                 </div>
               </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-ink/30">#{reel.id}</span>
+                  <h3 className="font-display text-base truncate">{reel.name}</h3>
+                </div>
+                <p className="text-xs text-ink/50 mt-0.5">{reel.tagline}</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-medium text-ink/50 capitalize">
+                    {reel.style}
+                  </span>
+                  <span className="text-[10px] text-ink/30">{reel.scenes.length} scenes</span>
+                  <span className="text-[10px] text-ink/30">{reel.duration}s</span>
+                </div>
+              </div>
+
+              {/* Arrow */}
+              <div className="text-ink/20 group-hover:text-secondary transition-colors">
+                <ExternalLink size={16} />
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {filteredReels.length === 0 && (
+        <div className="text-center py-20">
+          <p className="text-4xl mb-4">🔍</p>
+          <p className="font-display text-xl text-ink/40">No reels found</p>
+          <p className="text-sm text-ink/30 mt-1">Try a different search or filter</p>
+        </div>
+      )}
+
+      {/* Expanded Player */}
+      <AnimatePresence>
+        {expandedReel && (
+          <ReelPlayer
+            reel={expandedReel}
+            isExpanded={true}
+            onClose={() => setExpandedId(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Instructions */}
-      <div className="mt-12 rounded-xl border-2 border-ink/10 bg-white p-6">
-        <h2 className="font-display text-xl mb-3">📱 How to Create Instagram Reels</h2>
+      <motion.div
+        className="mt-12 rounded-xl border-2 border-ink/10 bg-white p-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <h2 className="font-display text-xl mb-3">📱 How to Use These Reels</h2>
         <ol className="space-y-2 text-sm text-ink/70">
-          <li>1. Click any card above to start its animation</li>
-          <li>2. Use your phone&apos;s screen recorder (or a desktop tool like OBS)</li>
-          <li>3. Record for 15-20 seconds — the animation loops automatically</li>
-          <li>4. Crop to 1080×1920 (9:16 portrait) for Instagram Reels</li>
-          <li>5. Add trending audio in the Instagram app</li>
-          <li>6. Post with hashtags like #HouseOfFashion #PakistaniFashion #OOTD</li>
+          <li><strong>1.</strong> Click any reel card above to open the full-screen player</li>
+          <li><strong>2.</strong> Press play to watch the animated scenes auto-advance</li>
+          <li><strong>3.</strong> Click &quot;Export Video&quot; to download as a .webm video file</li>
+          <li><strong>4.</strong> Convert to MP4 using any free tool (CloudConvert, FFmpeg, etc.)</li>
+          <li><strong>5.</strong> Add trending audio in Instagram/TikTok before posting</li>
+          <li><strong>6.</strong> Post with hashtags like #HouseOfFashion #PakistaniFashion #OOTD</li>
         </ol>
-        <div className="mt-4 flex gap-3">
+        <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href="/"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-ink hover:bg-primary-dark transition-colors"
@@ -158,13 +226,19 @@ export default function PromosPage() {
             Back to Store
           </Link>
           <Link
-            href="/admin"
+            href="/shop"
             className="inline-flex items-center gap-2 rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-cream hover:bg-ink/85 transition-colors"
+          >
+            Browse Products
+          </Link>
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-2 rounded-lg border-2 border-ink/10 px-5 py-2.5 text-sm font-semibold text-ink hover:bg-ink/5 transition-colors"
           >
             <ExternalLink size={14} /> Admin Panel
           </Link>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
