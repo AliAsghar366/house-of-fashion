@@ -113,8 +113,22 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
           </div>
 
           {product.stock === 0 ? (
-            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-center gap-1.5 rounded-lg bg-red-500/90 py-2 text-xs font-bold text-white">
-              Sold Out
+            <div className="absolute bottom-2 left-2 right-2 flex gap-1.5 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all">
+              <div className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-red-500/90 py-2 text-xs font-bold text-white">
+                Sold Out
+              </div>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  toggleWishlist(product.slug);
+                }}
+                className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                  wishlisted ? "bg-secondary text-white" : "bg-white/90 text-ink hover:bg-secondary hover:text-white"
+                }`}
+                aria-label="Add to wishlist"
+              >
+                <Heart size={14} className={wishlisted ? "fill-current" : ""} />
+              </button>
             </div>
           ) : (
             <div className="absolute bottom-2 left-2 right-2 flex gap-1.5 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all">
