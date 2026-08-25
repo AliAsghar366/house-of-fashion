@@ -15,6 +15,7 @@ import { CompareBar } from "@/components/CompareBar";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { CookieConsent } from "@/components/CookieConsent";
 import { PageTracker } from "@/components/PageTracker";
+import { NetlifyBadgeRemover } from "@/components/NetlifyBadgeRemover";
 
 const abril = Abril_Fatface({
   variable: "--font-abril",
@@ -59,6 +60,7 @@ export default function RootLayout({
                 <CompareBar />
                 <WhatsAppButton />                    <CookieConsent />
                     <PageTracker />
+                    <NetlifyBadgeRemover />
                   </RecentlyViewedProvider>
                 </CompareProvider>
               </WishlistProvider>

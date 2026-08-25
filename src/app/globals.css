@@ -84,3 +84,32 @@ h1, h2, h3, h4, .font-display {
 .animate-float-slow {
   animation: float-slow 8s ease-in-out infinite;
 }
+
+/* Hide Netlify badge */
+[title="Netlify"],
+[data-testid="netlify-badge"],
+a[href*="netlify"],
+a[href*="netlify"],
+.netlify-badge,
+.powered-by-netlify {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
+
+/* Hide any Netlify-powered element injected via JS */
+#netlify-badge,
+#_netlify-badge,
+._netlify-badge {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
