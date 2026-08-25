@@ -52,10 +52,26 @@ values (1, '240be518fabd2724ddb6f05eeb57ef4b491a0e68f68e1c53f91e5aa6e463b31f')
 on conflict (id) do nothing;
 
 alter table public.admin_settings enable row level security;
-create policy "admin_settings_public_read" on public.admin_settings for select using (true);
+-- NO public read policy — password hash is NOT accessible from client
 create policy "admin_settings_admin_update" on public.admin_settings for update using (
   exists (select 1 from public.profiles where id = auth.uid() and is_admin = true)
 );
+
+-- Server-side password verification function (SECURITY DEFINER — runs as owner)
+-- The hash is NEVER sent to the client
+create or replace function public.verify_admin_password(password_hash text)
+returns boolean
+language plpgsql
+security definer
+as $$
+DECLARE
+  stored_hash text;
+BEGIN
+  SELECT admin_settings.password_hash INTO stored_hash
+  FROM public.admin_settings WHERE id = 1;
+  RETURN stored_hash = password_hash;
+END;
+$$;
 
 -- ─── 3. Orders ────────────────────────────────────────────────
 create table if not exists public.orders (

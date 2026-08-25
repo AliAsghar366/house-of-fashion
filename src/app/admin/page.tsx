@@ -1228,9 +1228,18 @@ export default function AdminPage() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    // Check if already admin-authed via password
-    const session = sessionStorage.getItem(ADMIN_SESSION_KEY);
-    if (session === "true") setAdminAuthed(true);
+    // Check if already admin-authed via password (with 4-hour expiry)
+    try {
+      const session = sessionStorage.getItem(ADMIN_SESSION_KEY);
+      if (session) {
+        const data = JSON.parse(session);
+        if (data.authed && data.expiresAt > Date.now()) {
+          setAdminAuthed(true);
+        } else {
+          sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        }
+      }
+    } catch {}
     setHydrated(true);
   }, []);
 
@@ -1245,19 +1254,23 @@ export default function AdminPage() {
     }
     setPwLoading(true);
     try {
-      // Hash the entered password
+      // Hash the entered password client-side
       const encoder = new TextEncoder();
       const data = encoder.encode(pw);
       const hashBuffer = await crypto.subtle.digest("SHA-256", data);
       const hashHex = Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
 
-      // Fetch stored hash from Supabase
+      // Verify via server-side function — hash is NEVER sent to client
       const { supabase } = await import("@/lib/supabase");
-      const { data: settings } = await supabase.from("admin_settings").select("password_hash").eq("id", 1).single();
+      const { data: isValid } = await supabase.rpc("verify_admin_password", { password_hash: hashHex });
 
-      if (settings && hashHex === settings.password_hash) {
+      if (isValid === true) {
         clearAttempts();
-        sessionStorage.setItem(ADMIN_SESSION_KEY, "true");
+        // Session expires in 4 hours
+        sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({
+          authed: true,
+          expiresAt: Date.now() + 4 * 60 * 60 * 1000,
+        }));
         setAdminAuthed(true);
       } else {
         recordAttempt();
@@ -1321,7 +1334,7 @@ export default function AdminPage() {
                 {pwLoading ? "Verifying..." : "Sign In"}
               </button>
             </form>
-            <p className="text-[10px] text-[#191510]/30 text-center mt-4">Default password: admin123</p>
+
             <Link href="/" className="mt-4 flex items-center justify-center gap-1 text-sm text-[#191510]/60 hover:text-[#191510]">
               <ArrowLeft size={14} /> Back to store
             </Link>

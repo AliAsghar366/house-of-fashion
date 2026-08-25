@@ -91,13 +91,14 @@ export default function SupportPage() {
     e.preventDefault();
     setFormError("");
 
-    // Sanitize
+    // Sanitize — strip HTML tags from all text fields
+    const stripHtml = (s: string) => s.replace(/<[^>]*>/g, "").replace(/javascript:/gi, "").replace(/on\w+\s*=/gi, "").trim();
     const clean = {
-      name: formData.name.trim().slice(0, 100),
+      name: stripHtml(formData.name).slice(0, 100),
       email: formData.email.trim().toLowerCase().slice(0, 200),
       category: formData.category,
-      subject: formData.subject.trim().slice(0, 200),
-      message: formData.message.trim().slice(0, 2000),
+      subject: stripHtml(formData.subject).slice(0, 200),
+      message: stripHtml(formData.message).slice(0, 2000),
     };
 
     if (!clean.name || !clean.email || !clean.subject || !clean.message) {

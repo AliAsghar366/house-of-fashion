@@ -53,6 +53,15 @@ export function escapeHtml(input: string): string {
 // Alias for backwards compatibility
 export const sanitize = sanitizeText;
 
+// Strip HTML tags for all text inputs
+export function stripHtml(input: string): string {
+  return input
+    .replace(/<[^>]*>/g, "")
+    .replace(/javascript:/gi, "")
+    .replace(/on\w+\s*=/gi, "")
+    .trim();
+}
+
 // General-purpose input cleaner
 export function cleanInput(input: string, options?: {
   maxLength?: number;
