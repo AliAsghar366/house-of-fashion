@@ -7,7 +7,9 @@ import { motion } from "framer-motion";
 import { Truck, CreditCard, Banknote, PartyPopper, ArrowRight, Upload, MessageCircle, Copy, Check } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useOrders } from "@/context/OrderContext";
+import { useAuth } from "@/context/AuthContext";
 import { formatPKR } from "@/lib/currency";
+import { Lock } from "lucide-react";
 
 const EASYPAISA_NUMBER = "+923120744554";
 const WHATSAPP_URL = `https://wa.me/${EASYPAISA_NUMBER.replace(/[^0-9]/g, "")}`;
@@ -15,6 +17,7 @@ const WHATSAPP_URL = `https://wa.me/${EASYPAISA_NUMBER.replace(/[^0-9]/g, "")}`;
 export default function CheckoutPage() {
   const { lineDetails, subtotal, totalItems, clearCart } = useCart();
   const { addOrder } = useOrders();
+  const { user, loading } = useAuth();
   const [payment, setPayment] = useState<"easypaisa" | "cod">("easypaisa");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [placed, setPlaced] = useState(false);
@@ -23,6 +26,26 @@ export default function CheckoutPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const shipping = subtotal >= 5000 ? 0 : 250;
   const total = subtotal + shipping;
+
+  if (!loading && !user) {
+    return (
+      <div className="mx-auto max-w-lg px-4 sm:px-6 py-24 text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/40 mb-4">
+          <Lock size={28} className="text-ink" />
+        </div>
+        <h1 className="font-display text-3xl">Sign In Required</h1>
+        <p className="mt-2 text-ink/60">You need an account to place orders.</p>
+        <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+          <Link href="/auth/signup" className="rounded-lg bg-ink px-6 py-3 font-semibold text-cream hover:bg-ink/85 transition-colors">
+            Create Free Account
+          </Link>
+          <Link href="/auth/signin" className="rounded-lg border-2 border-ink/15 px-6 py-3 font-semibold text-ink/70 hover:bg-ink/5 transition-colors">
+            Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   function handleReceiptUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

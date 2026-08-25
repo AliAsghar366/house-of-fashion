@@ -50,6 +50,9 @@ export function escapeHtml(input: string): string {
     .replace(/'/g, "&#039;");
 }
 
+// Alias for backwards compatibility
+export const sanitize = sanitizeText;
+
 // General-purpose input cleaner
 export function cleanInput(input: string, options?: {
   maxLength?: number;

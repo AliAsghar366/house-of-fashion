@@ -4,6 +4,7 @@ import { getCategory } from "@/data/categories";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ProductDetailView } from "@/components/ProductDetailView";
 import { ProductTabs } from "@/components/ProductTabs";
+import { ReviewSection } from "@/components/ReviewSection";
 import { ProductGrid } from "@/components/ProductGrid";
 import { RecentlyViewedStrip } from "@/components/RecentlyViewedStrip";
 
@@ -46,6 +47,7 @@ export default async function ProductPage({
       />
       <ProductDetailView product={product} />
       <ProductTabs product={product} />
+      <ReviewSection productSlug={product.slug} />
 
       {related.length > 0 && (
         <ProductGrid products={related} title="You May Also Like" subtitle="More from this niche" />

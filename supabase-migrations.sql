@@ -88,6 +88,8 @@ create table if not exists public.reviews (
   title text not null default '',
   body text not null default '',
   helpful_count int not null default 0,
+  admin_reply text default '',
+  admin_reply_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -141,9 +143,15 @@ create policy "reviews_select_public" on public.reviews for select using (true);
 create policy "reviews_insert_own" on public.reviews for insert with check (auth.uid() = user_id);
 create policy "reviews_update_own" on public.reviews for update using (auth.uid() = user_id);
 create policy "reviews_delete_own" on public.reviews for delete using (auth.uid() = user_id);
+create policy "reviews_admin_reply" on public.reviews for update using (
+  exists (select 1 from public.profiles where id = auth.uid() and is_admin = true)
+);
 
 create policy "tickets_select_own" on public.support_tickets for select using (auth.uid() = user_id);
 create policy "tickets_insert_own" on public.support_tickets for insert with check (auth.uid() = user_id or user_id is null);
+create policy "tickets_admin_reply" on public.support_tickets for update using (
+  exists (select 1 from public.profiles where id = auth.uid() and is_admin = true)
+);
 
 create policy "wishlists_select_own" on public.wishlists for select using (auth.uid() = user_id);
 create policy "wishlists_insert_own" on public.wishlists for insert with check (auth.uid() = user_id);

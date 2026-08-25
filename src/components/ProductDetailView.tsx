@@ -14,6 +14,7 @@ import { useWishlist } from "@/context/WishlistContext";
 import { useCompare } from "@/context/CompareContext";
 import { useRecentlyViewed } from "@/context/RecentlyViewedContext";
 import { useRouter } from "next/navigation";
+import { AuthGate } from "./AuthGate";
 
 export function ProductDetailView({ product }: { product: Product }) {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(
@@ -134,21 +135,23 @@ export function ProductDetailView({ product }: { product: Product }) {
               <AlertCircle size={18} /> Sold Out
             </div>
           ) : (
-            <>
-              <button
-                onClick={handleAddToCart}
-                className="flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 font-semibold text-ink fuzzy-shadow hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all"
-              >
-                {justAdded ? <Check size={18} /> : <ShoppingBag size={18} />}
-                {justAdded ? "Added!" : "Add to Cart"}
-              </button>
-              <button
-                onClick={handleBuyNow}
-                className="flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-lg bg-ink px-6 py-3.5 font-semibold text-cream hover:bg-ink/80 transition-colors"
-              >
-                <Zap size={18} /> Buy Now
-              </button>
-            </>
+            <AuthGate>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleAddToCart}
+                  className="flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 font-semibold text-ink fuzzy-shadow hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all"
+                >
+                  {justAdded ? <Check size={18} /> : <ShoppingBag size={18} />}
+                  {justAdded ? "Added!" : "Add to Cart"}
+                </button>
+                <button
+                  onClick={handleBuyNow}
+                  className="flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-lg bg-ink px-6 py-3.5 font-semibold text-cream hover:bg-ink/80 transition-colors"
+                >
+                  <Zap size={18} /> Buy Now
+                </button>
+              </div>
+            </AuthGate>
           )}
           <button
             onClick={() => toggleWishlist(product.slug)}

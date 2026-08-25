@@ -12,6 +12,7 @@ import { StarRating } from "./StarRating";
 import { useWishlist } from "@/context/WishlistContext";
 import { useCompare } from "@/context/CompareContext";
 import { useCart } from "@/context/CartContext";
+import { AuthGate } from "./AuthGate";
 
 export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const [hovered, setHovered] = useState(false);
@@ -132,12 +133,14 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
             </div>
           ) : (
             <div className="absolute bottom-2 left-2 right-2 flex gap-1.5 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all">
-              <button
-                onClick={quickAdd}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-ink/90 py-2 text-xs font-semibold text-cream"
-              >
-                <ShoppingBag size={14} /> Add to Cart
-              </button>
+              <AuthGate>
+                <button
+                  onClick={quickAdd}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-ink/90 py-2 text-xs font-semibold text-cream"
+                >
+                  <ShoppingBag size={14} /> Add to Cart
+                </button>
+              </AuthGate>
               <button
                 onClick={(e) => {
                   e.preventDefault();

@@ -8,6 +8,7 @@ import {
   LogOut, ChevronDown, Check, X, Search, Filter, Plus, Trash2,
   Edit3, Save, Users, Globe, Monitor, Smartphone, Tablet,
   ArrowLeft, ExternalLink, TrendingUp, Calendar, AlertCircle, ChevronRight,
+  MessageSquare, Star, Shield,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrders, type Order, type OrderStatus } from "@/context/OrderContext";
@@ -19,6 +20,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { formatPKR } from "@/lib/currency";
 import { getAnalyticsSummary, seedAnalyticsData } from "@/lib/analytics";
+import { supabase as supabaseClient } from "@/lib/supabase";
 
 // Admin access is now verified server-side via Supabase is_admin flag
 // No passwords or hashes stored client-side
@@ -33,7 +35,7 @@ const STATUS_OPTIONS: { value: OrderStatus; label: string; color: string }[] = [
   { value: "closed", label: "Closed", color: "bg-gray-100 text-gray-800" },
 ];
 
-type AdminTab = "orders" | "products" | "categories" | "analytics";
+type AdminTab = "orders" | "products" | "categories" | "analytics" | "reviews";
 
 // ===================== ACCESS DENIED =====================
 function AdminDenied({ onBack }: { onBack: () => void }) {
@@ -963,6 +965,150 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
+// ===================== REVIEWS TAB =====================
+function ReviewsTab() {
+  const [reviews, setReviews] = useState<(any & { profiles?: any })[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "replied" | "unreplied">("all");
+  const [search, setSearch] = useState("");
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => { fetchReviews(); }, []);
+
+  async function fetchReviews() {
+    setLoading(true);
+    const { data } = await supabaseClient
+      .from("reviews")
+      .select("*, profiles(full_name, email)")
+      .order("created_at", { ascending: false });
+    if (data) setReviews(data);
+    setLoading(false);
+  }
+
+  async function sendReply(reviewId: string) {
+    if (!replyText.trim()) return;
+    setSending(true);
+    const { error } = await supabaseClient
+      .from("reviews")
+      .update({ admin_reply: replyText.trim(), admin_reply_at: new Date().toISOString() })
+      .eq("id", reviewId);
+    if (!error) {
+      setReplyingTo(null);
+      setReplyText("");
+      fetchReviews();
+    }
+    setSending(false);
+  }
+
+  const filtered = reviews.filter((r) => {
+    if (filter === "replied" && !r.admin_reply) return false;
+    if (filter === "unreplied" && r.admin_reply) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (
+        r.product_slug?.toLowerCase().includes(q) ||
+        r.title?.toLowerCase().includes(q) ||
+        r.body?.toLowerCase().includes(q) ||
+        r.profiles?.full_name?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  return (
+    <div>
+      <h2 className="font-display text-2xl text-[#191510] mb-4">Customer Reviews</h2>
+
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#191510]/40" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search reviews..." className="w-full rounded-lg border-2 border-[#191510]/10 bg-white pl-9 pr-3 py-2 text-sm outline-none focus:border-[#e8734a]" />
+        </div>
+        <div className="flex gap-1">
+          {(["all", "replied", "unreplied"] as const).map((f) => (
+            <button key={f} onClick={() => setFilter(f)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${
+              filter === f ? "bg-[#191510] text-[#fef3b0]" : "bg-white border-2 border-[#191510]/10 text-[#191510]/70 hover:bg-[#fef3b0]/50"
+            }`}>{f}</button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          {[1,2,3].map(i => <div key={i} className="h-24 rounded-xl bg-[#191510]/5 animate-pulse" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <p className="text-sm text-[#191510]/40 py-8 text-center">No reviews found.</p>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((review) => (
+            <div key={review.id} className="rounded-xl border-2 border-[#191510]/10 bg-white p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold">{review.profiles?.full_name || "Anonymous"}</span>
+                    <span className="text-xs text-[#191510]/40">· {review.profiles?.email || ""}</span>
+                    <span className="text-xs text-[#191510]/40">· {new Date(review.created_at).toLocaleDateString("en-PK")}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex gap-0.5">
+                      {[1,2,3,4,5].map(s => (
+                        <Star key={s} size={12} className={s <= review.rating ? "fill-amber-400 text-amber-400" : "text-[#191510]/15"} />
+                      ))}
+                    </div>
+                    <span className="text-xs font-semibold text-[#191510]/60">on {review.product_slug}</span>
+                  </div>
+                  {review.title && <p className="font-semibold text-sm mt-2">{review.title}</p>}
+                  <p className="text-sm text-[#191510]/70 mt-1 whitespace-pre-wrap">{review.body}</p>
+
+                  {review.admin_reply && (
+                    <div className="mt-3 rounded-lg bg-blue-50 border border-blue-200 p-3">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Shield size={12} className="text-blue-600" />
+                        <span className="text-xs font-bold text-blue-700">Your Reply</span>
+                      </div>
+                      <p className="text-sm text-blue-900 whitespace-pre-wrap">{review.admin_reply}</p>
+                    </div>
+                  )}
+
+                  {replyingTo === review.id ? (
+                    <div className="mt-3 space-y-2">
+                      <textarea
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder="Write your reply..."
+                        rows={3}
+                        className="w-full rounded-lg border-2 border-[#191510]/15 bg-white px-3 py-2 text-sm outline-none focus:border-[#e8734a] resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button onClick={() => sendReply(review.id)} disabled={sending || !replyText.trim()} className="rounded-lg bg-[#191510] px-4 py-1.5 text-xs font-semibold text-[#fef3b0] hover:bg-[#191510]/85 disabled:opacity-50">
+                          {sending ? "Sending..." : "Send Reply"}
+                        </button>
+                        <button onClick={() => { setReplyingTo(null); setReplyText(""); }} className="rounded-lg border-2 border-[#191510]/15 px-4 py-1.5 text-xs font-semibold text-[#191510]/60 hover:bg-[#191510]/5">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setReplyingTo(review.id); setReplyText(review.admin_reply || ""); }}
+                      className="mt-3 flex items-center gap-1.5 rounded-lg border-2 border-[#191510]/10 px-3 py-1.5 text-xs font-semibold text-[#191510]/70 hover:bg-[#fef3b0]/50 transition-colors"
+                    >
+                      <MessageSquare size={12} /> {review.admin_reply ? "Edit Reply" : "Reply"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ===================== MAIN ADMIN PAGE =====================
 // Brute force protection
 const ATTEMPTS_KEY = "hof_admin_attempts";
@@ -1115,6 +1261,7 @@ export default function AdminPage() {
     { id: "orders", label: "Orders", icon: <ShoppingCart size={16} /> },
     { id: "products", label: "Products", icon: <Package size={16} /> },
     { id: "categories", label: "Categories", icon: <Tag size={16} /> },
+    { id: "reviews", label: "Reviews", icon: <MessageSquare size={16} /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 size={16} /> },
   ];
 
@@ -1181,6 +1328,7 @@ export default function AdminPage() {
             {activeTab === "orders" && <OrdersTab />}
             {activeTab === "products" && <ProductsTab />}
             {activeTab === "categories" && <CategoriesTab />}
+            {activeTab === "reviews" && <ReviewsTab />}
             {activeTab === "analytics" && <AnalyticsTab />}
           </motion.div>
         </AnimatePresence>
