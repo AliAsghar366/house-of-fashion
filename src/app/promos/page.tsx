@@ -1,14 +1,220 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, Play, Download, ExternalLink, Grid3x3, LayoutList } from "lucide-react";
+import { Search, Play, Pause, X, Grid3x3, LayoutList, Download, ExternalLink } from "lucide-react";
 import { REEL_TEMPLATES } from "@/data/reels";
-import { ReelPlayer } from "@/components/ReelPlayer";
 
 const STYLES = ["all", "bold", "elegant", "playful", "minimal", "luxury", "vibrant", "dark", "pastel"] as const;
 
+function getVideoSrc(reelId: number): string {
+  // Reels 1-24 have .mp4, reels 25-50 have .webm
+  if (reelId <= 24) {
+    return `/reels/reel-${String(reelId).padStart(2, "0")}.mp4`;
+  }
+  return `/reels/reel-${String(reelId).padStart(2, "0")}.webm`;
+}
+
+// ─── Reel Card ───────────────────────────────────────────────
+function ReelCard({
+  reel,
+  onClick,
+}: {
+  reel: (typeof REEL_TEMPLATES)[0];
+  onClick: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <motion.div
+      className="cursor-pointer group"
+      whileHover={{ y: -4 }}
+      whileTap={{ scale: 0.97 }}
+      onClick={onClick}
+      onMouseEnter={() => {
+        setIsHovered(true);
+        videoRef.current?.play().catch(() => {});
+      }}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        if (videoRef.current) {
+          videoRef.current.pause();
+          videoRef.current.currentTime = 0;
+        }
+      }}
+    >
+      <div className="relative rounded-xl overflow-hidden aspect-[9/16] border-2 border-ink/10 shadow-lg hover:shadow-xl transition-shadow bg-ink/5">
+        {/* Video preview */}
+        <video
+          ref={videoRef}
+          src={getVideoSrc(reel.id)}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          className="absolute inset-0 w-full h-full object-cover"
+          poster=""
+        />
+
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10" />
+
+        {/* Reel number */}
+        <div className="absolute top-2 left-2">
+          <span className="rounded-full bg-ink/50 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+            #{reel.id}
+          </span>
+        </div>
+
+        {/* Play indicator */}
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="rounded-full bg-ink/50 p-1.5 backdrop-blur-sm">
+            <Play size={12} className="text-white" />
+          </div>
+        </div>
+
+        {/* Content overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-3">
+          <h3 className="font-display text-sm text-white leading-tight drop-shadow-lg">
+            {reel.name}
+          </h3>
+          <p className="text-[10px] text-white/70 mt-0.5">{reel.tagline}</p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-medium text-white/80 capitalize backdrop-blur-sm">
+              {reel.style}
+            </span>
+            <span className="text-[9px] text-white/50">{reel.duration}s</span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Expanded Video Player ───────────────────────────────────
+function VideoPlayer({
+  reel,
+  onClose,
+}: {
+  reel: (typeof REEL_TEMPLATES)[0];
+  onClose: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+
+  const togglePlay = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play();
+      setIsPlaying(true);
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  const handleDownload = () => {
+    const a = document.createElement("a");
+    a.href = getVideoSrc(reel.id);
+    a.download = `reel-${reel.id}-${reel.name.toLowerCase().replace(/\s+/g, "-")}${reel.id <= 24 ? ".mp4" : ".webm"}`;
+    a.click();
+  };
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="relative w-full max-w-[360px]"
+        initial={{ scale: 0.8, y: 40 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.8, y: 40 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Video viewport */}
+        <div className="relative rounded-2xl overflow-hidden aspect-[9/16] shadow-2xl border-2 border-white/10 bg-ink">
+          <video
+            ref={videoRef}
+            src={getVideoSrc(reel.id)}
+            autoPlay
+            loop
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+            onClick={togglePlay}
+          />
+
+          {/* Pause overlay */}
+          {!isPlaying && (
+            <div
+              className="absolute inset-0 flex items-center justify-center bg-black/20 cursor-pointer"
+              onClick={togglePlay}
+            >
+              <div className="rounded-full bg-white/30 p-4 backdrop-blur-sm">
+                <Play size={32} className="text-white ml-1" />
+              </div>
+            </div>
+          )}
+
+          {/* Reel info overlay */}
+          <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
+            <span className="rounded-full bg-ink/50 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+              #{reel.id}
+            </span>
+            <span className="rounded-full bg-ink/50 px-2 py-0.5 text-[10px] text-white/70 backdrop-blur-sm">
+              {reel.duration}s
+            </span>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center justify-center gap-3 mt-4">
+          <button
+            onClick={togglePlay}
+            className="rounded-full bg-white/10 hover:bg-white/20 p-3 text-white transition-colors"
+          >
+            {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+          </button>
+
+          <button
+            onClick={handleDownload}
+            className="rounded-full bg-secondary hover:bg-secondary/80 px-4 py-2 text-white text-sm font-semibold transition-colors flex items-center gap-2"
+          >
+            <Download size={14} />
+            Download {reel.id <= 24 ? "MP4" : "WebM"}
+          </button>
+
+          <button
+            onClick={onClose}
+            className="rounded-full bg-white/10 hover:bg-white/20 p-3 text-white transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Reel details */}
+        <div className="text-center mt-3">
+          <h3 className="font-display text-lg text-white">{reel.name}</h3>
+          <p className="text-white/60 text-xs mt-0.5">{reel.tagline}</p>
+          <div className="flex justify-center gap-1 mt-2">
+            {reel.tags.map((tag) => (
+              <span key={tag} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/40">
+                #{tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── Main Page ───────────────────────────────────────────────
 export default function PromosPage() {
   const [search, setSearch] = useState("");
   const [styleFilter, setStyleFilter] = useState<string>("all");
@@ -38,7 +244,7 @@ export default function PromosPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          50 AI-Generated Reels
+          50 Promotional Reels
         </motion.h1>
         <motion.p
           className="mt-3 text-ink/60 max-w-xl mx-auto text-sm sm:text-base"
@@ -46,8 +252,8 @@ export default function PromosPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          Professional promotional reels for your social media. Click any reel to preview the animation,
-          then export it as a video file — ready for Instagram, TikTok, or Facebook.
+          Pre-rendered promotional videos ready for Instagram, TikTok, and Facebook.
+          Click any reel to preview, then download the video file.
         </motion.p>
         <motion.div
           className="flex items-center justify-center gap-4 mt-4 text-xs text-ink/40"
@@ -55,11 +261,11 @@ export default function PromosPage() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
         >
-          <span>📱 9:16 Portrait</span>
+          <span>📱 1080×1920 Portrait</span>
           <span>•</span>
-          <span>🎬 3-4 Scenes Each</span>
+          <span>🎬 15s Each</span>
           <span>•</span>
-          <span>⬇️ Export as Video</span>
+          <span>⬇️ Direct Download</span>
         </motion.div>
       </div>
 
@@ -82,7 +288,7 @@ export default function PromosPage() {
           />
         </div>
 
-        {/* Style filter pills */}
+        {/* Style filter */}
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
           {STYLES.map((style) => (
             <button
@@ -130,9 +336,8 @@ export default function PromosPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: idx * 0.02 }}
-              onClick={() => setExpandedId(reel.id)}
             >
-              <ReelPlayer reel={reel} />
+              <ReelCard reel={reel} onClick={() => setExpandedId(reel.id)} />
             </motion.div>
           ))}
         </div>
@@ -147,11 +352,14 @@ export default function PromosPage() {
               onClick={() => setExpandedId(reel.id)}
               className="flex items-center gap-4 rounded-xl border-2 border-ink/10 bg-white p-3 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group"
             >
-              {/* Mini thumbnail */}
-              <div
-                className={`w-16 h-28 rounded-lg bg-gradient-to-b ${reel.scenes[0].bg} flex items-center justify-center flex-shrink-0 relative overflow-hidden`}
-              >
-                <span className="text-2xl">{reel.scenes[0].emoji}</span>
+              {/* Video thumbnail */}
+              <div className="w-16 h-28 rounded-lg overflow-hidden flex-shrink-0 relative bg-ink/5">
+                <video
+                  src={getVideoSrc(reel.id)}
+                  muted
+                  preload="metadata"
+                  className="w-full h-full object-cover"
+                />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Play size={16} className="text-white" />
                 </div>
@@ -168,12 +376,11 @@ export default function PromosPage() {
                   <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-medium text-ink/50 capitalize">
                     {reel.style}
                   </span>
-                  <span className="text-[10px] text-ink/30">{reel.scenes.length} scenes</span>
                   <span className="text-[10px] text-ink/30">{reel.duration}s</span>
+                  <span className="text-[10px] text-ink/30">{reel.id <= 24 ? "MP4" : "WebM"}</span>
                 </div>
               </div>
 
-              {/* Arrow */}
               <div className="text-ink/20 group-hover:text-secondary transition-colors">
                 <ExternalLink size={16} />
               </div>
@@ -194,30 +401,34 @@ export default function PromosPage() {
       {/* Expanded Player */}
       <AnimatePresence>
         {expandedReel && (
-          <ReelPlayer
-            reel={expandedReel}
-            isExpanded={true}
-            onClose={() => setExpandedId(null)}
-          />
+          <VideoPlayer reel={expandedReel} onClose={() => setExpandedId(null)} />
         )}
       </AnimatePresence>
 
-      {/* Instructions */}
+      {/* File listing */}
       <motion.div
         className="mt-12 rounded-xl border-2 border-ink/10 bg-white p-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
-        <h2 className="font-display text-xl mb-3">📱 How to Use These Reels</h2>
-        <ol className="space-y-2 text-sm text-ink/70">
-          <li><strong>1.</strong> Click any reel card above to open the full-screen player</li>
-          <li><strong>2.</strong> Press play to watch the animated scenes auto-advance</li>
-          <li><strong>3.</strong> Click &quot;Export Video&quot; to download as a .webm video file</li>
-          <li><strong>4.</strong> Convert to MP4 using any free tool (CloudConvert, FFmpeg, etc.)</li>
-          <li><strong>5.</strong> Add trending audio in Instagram/TikTok before posting</li>
-          <li><strong>6.</strong> Post with hashtags like #HouseOfFashion #PakistaniFashion #OOTD</li>
-        </ol>
+        <h2 className="font-display text-xl mb-3">📁 Saved Video Files</h2>
+        <p className="text-sm text-ink/60 mb-4">
+          All 50 reels are saved as video files in the <code className="bg-ink/5 px-1 rounded">public/reels/</code> directory.
+          Reels 1-24 are MP4, reels 25-50 are WebM. All are 1080×1920 portrait format at 15 seconds each.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-xs">
+          {Array.from({ length: 50 }, (_, i) => {
+            const reel = REEL_TEMPLATES[i];
+            const ext = reel.id <= 24 ? "mp4" : "webm";
+            return (
+              <div key={i} className="flex items-center gap-1.5 text-ink/40">
+                <span className="w-5 text-right font-mono text-ink/30">#{String(reel.id).padStart(2, "0")}</span>
+                <span className="truncate">{reel.name.toLowerCase().replace(/\s+/g, "-")}.{ext}</span>
+              </div>
+            );
+          })}
+        </div>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href="/"
@@ -230,12 +441,6 @@ export default function PromosPage() {
             className="inline-flex items-center gap-2 rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-cream hover:bg-ink/85 transition-colors"
           >
             Browse Products
-          </Link>
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 rounded-lg border-2 border-ink/10 px-5 py-2.5 text-sm font-semibold text-ink hover:bg-ink/5 transition-colors"
-          >
-            <ExternalLink size={14} /> Admin Panel
           </Link>
         </div>
       </motion.div>
