@@ -152,12 +152,15 @@ export function ProductDetailView({ product }: { product: Product }) {
           )}
           <button
             onClick={() => toggleWishlist(product.slug)}
-            className={`rounded-lg border-2 p-3.5 transition-colors ${
-              wishlisted ? "border-primary bg-primary text-ink" : "border-ink/15 hover:border-primary/50"
+            className={`flex items-center gap-2 rounded-lg border-2 px-5 py-3.5 font-semibold text-sm transition-colors ${
+              wishlisted
+                ? "border-primary bg-primary text-ink"
+                : "border-ink/15 text-ink/70 hover:border-primary hover:text-ink"
             }`}
             aria-label="Toggle wishlist"
           >
-            <Heart size={20} className={wishlisted ? "fill-current" : ""} />
+            <Heart size={18} className={wishlisted ? "fill-current" : ""} />
+            {wishlisted ? "Wishlisted" : "Add to Wishlist"}
           </button>
           <button
             onClick={() => {
