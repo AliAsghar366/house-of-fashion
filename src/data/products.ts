@@ -421,7 +421,7 @@ function generateProductsForNiche(config: NicheConfig, count: number): Product[]
 
       const rating = Math.round((3.8 + r3 * 1.2) * 10) / 10;
       const reviewCount = Math.floor(8 + r1 * 240);
-      const stock = Math.floor(15 + r2 * 300);
+      const stock = 0; // All products sold out
 
       const descTemplate =
         descriptionTemplates[productIndex % descriptionTemplates.length];

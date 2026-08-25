@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Heart, Scale, ShoppingBag, Zap, Check } from "lucide-react";
+import { Heart, Scale, ShoppingBag, Zap, Check, AlertCircle } from "lucide-react";
 import type { Product } from "@/data/products";
 import { ProductGallery } from "./ProductGallery";
 import { ProductTiers } from "./ProductTiers";
@@ -80,7 +80,11 @@ export function ProductDetailView({ product }: { product: Product }) {
           <span className="text-sm text-ink/65">/ unit · {qty} pcs = {formatPKR(total)}</span>
         </div>
         <p className="text-xs text-ink/65 mt-1">
-          {product.stock} in stock · MOQ {product.moq} pieces
+          {product.stock === 0 ? (
+            <span className="text-red-500 font-semibold">Sold Out — currently unavailable</span>
+          ) : (
+            <>{product.stock} in stock · MOQ {product.moq} pieces</>
+          )}
         </p>
 
         <div className="mt-5">
@@ -125,19 +129,27 @@ export function ProductDetailView({ product }: { product: Product }) {
         </div>
 
         <div className="mt-7 flex flex-wrap gap-3">
-          <button
-            onClick={handleAddToCart}
-            className="flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 font-semibold text-ink fuzzy-shadow hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all"
-          >
-            {justAdded ? <Check size={18} /> : <ShoppingBag size={18} />}
-            {justAdded ? "Added!" : "Add to Cart"}
-          </button>
-          <button
-            onClick={handleBuyNow}
-            className="flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-lg bg-ink px-6 py-3.5 font-semibold text-cream hover:bg-ink/80 transition-colors"
-          >
-            <Zap size={18} /> Buy Now
-          </button>
+          {product.stock === 0 ? (
+            <div className="flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-lg bg-red-100 border-2 border-red-200 px-6 py-3.5 font-semibold text-red-600">
+              <AlertCircle size={18} /> Sold Out
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={handleAddToCart}
+                className="flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 font-semibold text-ink fuzzy-shadow hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all"
+              >
+                {justAdded ? <Check size={18} /> : <ShoppingBag size={18} />}
+                {justAdded ? "Added!" : "Add to Cart"}
+              </button>
+              <button
+                onClick={handleBuyNow}
+                className="flex flex-1 min-w-[160px] items-center justify-center gap-2 rounded-lg bg-ink px-6 py-3.5 font-semibold text-cream hover:bg-ink/80 transition-colors"
+              >
+                <Zap size={18} /> Buy Now
+              </button>
+            </>
+          )}
           <button
             onClick={() => toggleWishlist(product.slug)}
             className={`rounded-lg border-2 p-3.5 transition-colors ${

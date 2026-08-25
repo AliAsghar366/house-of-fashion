@@ -67,6 +67,11 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
           />
 
           <div className="absolute top-2 left-2 flex flex-col gap-1">
+            {product.stock === 0 && (
+              <span className="rounded-full bg-red-500 px-2.5 py-1 text-[10px] font-bold text-white">
+                SOLD OUT
+              </span>
+            )}
             {product.isNew && (
               <span className="rounded-full bg-mint px-2.5 py-1 text-[10px] font-bold text-ink">
                 NEW
@@ -107,12 +112,18 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
             </button>
           </div>
 
-          <button
-            onClick={quickAdd}
-            className="absolute bottom-2 left-2 right-2 flex items-center justify-center gap-1.5 rounded-lg bg-ink/90 py-2 text-xs font-semibold text-cream opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all"
-          >
-            <ShoppingBag size={14} /> Add {product.moq} to cart
-          </button>
+          {product.stock === 0 ? (
+            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-center gap-1.5 rounded-lg bg-red-500/90 py-2 text-xs font-bold text-white">
+              Sold Out
+            </div>
+          ) : (
+            <button
+              onClick={quickAdd}
+              className="absolute bottom-2 left-2 right-2 flex items-center justify-center gap-1.5 rounded-lg bg-ink/90 py-2 text-xs font-semibold text-cream opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all"
+            >
+              <ShoppingBag size={14} /> Add {product.moq} to cart
+            </button>
+          )}
         </div>
 
         <div className="flex flex-1 flex-col gap-1.5 p-3.5">
