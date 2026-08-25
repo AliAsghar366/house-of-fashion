@@ -15,23 +15,28 @@ create table if not exists public.profiles (
   avatar_url text default '',
   address text default '',
   city text default '',
+  is_admin boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
--- Auto-create profile on signup
+-- Auto-create profile on signup (with is_admin default false)
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, full_name, email)
+  insert into public.profiles (id, full_name, email, is_admin)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', ''),
-    coalesce(new.email, '')
+    coalesce(new.email, ''),
+    coalesce((new.raw_user_meta_data->>'is_admin')::boolean, false)
   );
   return new;
 end;
 $$ language plpgsql security definer;
+
+-- Grant admin access to specific users (run after signup)
+-- UPDATE profiles SET is_admin = true WHERE email = 'your@email.com';
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created

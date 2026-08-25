@@ -19,6 +19,7 @@ export type UserProfile = {
   avatar_url: string;
   address: string;
   city: string;
+  is_admin: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -32,14 +33,17 @@ type AuthContextValue = {
     email: string,
     password: string,
     fullName: string
-  ) => Promise<{ error?: string }>;
+  ) => Promise<{ error?: string; needsVerification?: boolean }>;
   signIn: (
     email: string,
     password: string
-  ) => Promise<{ error?: string }>;
+  ) => Promise<{ error?: string; needsVerification?: boolean }>;
+  signInWithGoogle: () => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
+  resendVerification: (email: string) => Promise<{ error?: string }>
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error?: string }>;
   refreshProfile: () => Promise<void>;
+  isAdmin: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -108,43 +112,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchProfile]);
 
-  // Sign up
+  const isAdmin = profile?.is_admin === true;
+
+  // Sign up with email verification
   const signUp = useCallback(
     async (email: string, password: string, fullName: string) => {
       try {
-        // Validate inputs
         const cleanEmail = email.trim().toLowerCase();
         const cleanName = fullName.trim();
 
-        if (!cleanEmail || !password || !cleanName) {
-          return { error: "All fields are required" };
-        }
-        if (password.length < 6) {
-          return { error: "Password must be at least 6 characters" };
-        }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-          return { error: "Invalid email address" };
-        }
-        if (cleanName.length < 2) {
-          return { error: "Name must be at least 2 characters" };
-        }
+        if (!cleanEmail || !password || !cleanName) return { error: "All fields are required" };
+        if (password.length < 6) return { error: "Password must be at least 6 characters" };
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) return { error: "Invalid email address" };
+        if (cleanName.length < 2) return { error: "Name must be at least 2 characters" };
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
           options: {
             data: { full_name: cleanName },
+            emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
           },
         });
 
         if (error) {
-          if (error.message.includes("already registered")) {
-            return { error: "An account with this email already exists" };
-          }
+          if (error.message.includes("already registered")) return { error: "An account with this email already exists" };
           return { error: error.message };
         }
 
-        return {};
+        // Supabase sends verification email automatically if email confirmation is enabled
+        const needsVerification = !!data?.user && !data?.session;
+        return { needsVerification };
       } catch {
         return { error: "An unexpected error occurred" };
       }
@@ -152,14 +150,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  // Sign in
+  // Sign in with email/password
   const signIn = useCallback(async (email: string, password: string) => {
     try {
       const cleanEmail = email.trim().toLowerCase();
-
-      if (!cleanEmail || !password) {
-        return { error: "Email and password are required" };
-      }
+      if (!cleanEmail || !password) return { error: "Email and password are required" };
 
       const { error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
@@ -167,15 +162,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
-        if (error.message.includes("Invalid login")) {
-          return { error: "Invalid email or password" };
-        }
+        if (error.message.includes("Email not confirmed")) return { needsVerification: true, error: "Please verify your email first. Check your inbox." };
+        if (error.message.includes("Invalid login")) return { error: "Invalid email or password" };
         return { error: error.message };
       }
-
       return {};
     } catch {
       return { error: "An unexpected error occurred" };
+    }
+  }, []);
+
+  // Sign in with Google OAuth
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+        },
+      });
+      if (error) return { error: error.message };
+      return {};
+    } catch {
+      return { error: "Google sign-in failed" };
+    }
+  }, []);
+
+  // Resend verification email
+  const resendVerification = useCallback(async (email: string) => {
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      if (!cleanEmail) return { error: "Email is required" };
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: cleanEmail,
+      });
+      if (error) return { error: error.message };
+      return {};
+    } catch {
+      return { error: "Failed to resend verification email" };
     }
   }, []);
 
@@ -242,9 +267,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signUp,
         signIn,
+        signInWithGoogle,
         signOut,
+        resendVerification,
         updateProfile,
         refreshProfile,
+        isAdmin,
       }}
     >
       {children}
