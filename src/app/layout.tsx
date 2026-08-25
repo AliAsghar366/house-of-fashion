@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Abril_Fatface, Poppins } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { CompareProvider } from "@/context/CompareContext";
@@ -42,6 +43,7 @@ export default function RootLayout({
       className={`${abril.variable} ${poppins.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-cream text-ink">
+        <AuthProvider>
         <OrderProvider>
           <DynamicProductProvider>
             <CartProvider>
@@ -60,6 +62,7 @@ export default function RootLayout({
             </CartProvider>
           </DynamicProductProvider>
         </OrderProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -19,7 +19,51 @@ import {
 import { formatPKR } from "@/lib/currency";
 import { getAnalyticsSummary, seedAnalyticsData } from "@/lib/analytics";
 
-const ADMIN_PASSWORD = "1234abcd";
+// Security: admin password hashed with SHA-256
+// The password "admin123" is hashed below. To change: generate new hash with crypto.subtle.digest
+const ADMIN_PASSWORD_HASH = "240be518fabd2724ddb6f05eeb57ef4b491a0e68f68e1c53f91e5aa6e463b31f";
+
+async function verifyAdminPassword(password: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  return hashHex === ADMIN_PASSWORD_HASH;
+}
+
+// Brute force protection
+const ATTEMPTS_KEY = "hof_admin_attempts";
+const LOCKOUT_KEY = "hof_admin_lockout";
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+function getAttempts(): { count: number; lockedUntil: number } {
+  try {
+    const raw = localStorage.getItem(ATTEMPTS_KEY);
+    const lockRaw = localStorage.getItem(LOCKOUT_KEY);
+    const lockedUntil = lockRaw ? parseInt(lockRaw) : 0;
+    if (lockedUntil > Date.now()) return { count: MAX_ATTEMPTS, lockedUntil };
+    return { count: raw ? parseInt(raw) : 0, lockedUntil: 0 };
+  } catch { return { count: 0, lockedUntil: 0 }; }
+}
+
+function recordAttempt() {
+  try {
+    const { count } = getAttempts();
+    localStorage.setItem(ATTEMPTS_KEY, String(count + 1));
+    if (count + 1 >= MAX_ATTEMPTS) {
+      localStorage.setItem(LOCKOUT_KEY, String(Date.now() + LOCKOUT_MS));
+    }
+  } catch {}
+}
+
+function clearAttempts() {
+  try {
+    localStorage.removeItem(ATTEMPTS_KEY);
+    localStorage.removeItem(LOCKOUT_KEY);
+  } catch {}
+}
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string; color: string }[] = [
   { value: "pending", label: "Pending", color: "bg-yellow-100 text-yellow-800" },
@@ -39,13 +83,28 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
+    const { lockedUntil } = getAttempts();
+    if (lockedUntil > Date.now()) {
+      const mins = Math.ceil((lockedUntil - Date.now()) / 60000);
+      setError(`Locked out. Try again in ${mins} minute${mins > 1 ? "s" : ""}.`);
+      return;
+    }
+    const ok = await verifyAdminPassword(password);
+    if (ok) {
+      clearAttempts();
       sessionStorage.setItem("hof_admin_auth", "true");
       onLogin();
     } else {
-      setError("Incorrect password. Try again.");
+      recordAttempt();
+      const { count } = getAttempts();
+      const remaining = MAX_ATTEMPTS - count;
+      setError(
+        remaining > 0
+          ? `Incorrect password. ${remaining} attempt${remaining > 1 ? "s" : ""} remaining.`
+          : "Too many attempts. Locked for 30 minutes."
+      );
       setPassword("");
     }
   }

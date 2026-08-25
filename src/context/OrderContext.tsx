@@ -8,6 +8,7 @@ import {
   useState,
   ReactNode,
 } from "react";
+import { supabase } from "@/lib/supabase";
 
 export type OrderStatus =
   | "pending"
@@ -176,14 +177,38 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   function addOrder(data: Omit<Order, "id" | "status" | "createdAt" | "updatedAt">): Order {
     const now = Date.now();
+    const orderCode = `ORD-${now.toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     const newOrder: Order = {
       ...data,
-      id: `ORD-${now.toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+      id: orderCode,
       status: "pending",
       createdAt: now,
       updatedAt: now,
     };
     setOrders((prev) => [newOrder, ...prev]);
+
+    // Also save to Supabase if user is signed in
+    try {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          supabase.from("orders").insert({
+            order_code: orderCode,
+            user_id: user.id,
+            customer_name: data.customerName,
+            customer_phone: data.customerPhone,
+            customer_email: data.customerEmail,
+            items: data.items,
+            payment_method: data.paymentMethod,
+            subtotal: data.total,
+            shipping: data.shipping,
+            grand_total: data.grandTotal,
+            status: "pending",
+            status_history: [{ status: "pending", at: new Date().toISOString(), note: "Order placed" }],
+          });
+        }
+      });
+    } catch {}
+
     return newOrder;
   }
 

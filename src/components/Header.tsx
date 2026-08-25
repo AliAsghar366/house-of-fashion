@@ -4,12 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Heart, ShoppingBag, Menu, X, Scale } from "lucide-react";
+import { Search, Heart, ShoppingBag, Menu, X, Scale, User, LogIn } from "lucide-react";
 import { Logo } from "./Logo";
 import { categories } from "@/data/categories";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useCompare } from "@/context/CompareContext";
+import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 
 export function Header() {
@@ -21,6 +22,7 @@ export function Header() {
   const { totalItems, openCart } = useCart();
   const { slugs: wishlistSlugs } = useWishlist();
   const { slugs: compareSlugs } = useCompare();
+  const { user } = useAuth();
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -61,6 +63,15 @@ export function Header() {
             >
               <Search size={20} />
             </button>
+
+            {/* Auth link */}
+            <Link
+              href={user ? "/account" : "/auth/signin"}
+              className="rounded-lg bg-primary p-2 text-ink hover:bg-primary-dark transition-colors"
+              aria-label={user ? "My Account" : "Sign In"}
+            >
+              {user ? <User size={20} /> : <LogIn size={20} />}
+            </Link>
 
             <Link
               href="/compare"
@@ -193,6 +204,20 @@ export function Header() {
                   {cat.emoji} {cat.name}
                 </Link>
               ))}
+              <Link
+                href={user ? "/account" : "/auth/signin"}
+                onClick={() => setMobileOpen(false)}
+                className="rounded-lg bg-primary px-4 py-2.5 font-bold text-ink hover:bg-primary-dark transition-colors"
+              >
+                {user ? "👤 My Account" : "🔐 Sign In / Sign Up"}
+              </Link>
+              <Link
+                href="/track"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-lg bg-primary px-4 py-2.5 font-bold text-ink hover:bg-primary-dark transition-colors"
+              >
+                📦 Track Order
+              </Link>
               <Link
                 href="/compare"
                 onClick={() => setMobileOpen(false)}
