@@ -69,6 +69,13 @@ export function ShopExplorer({ fixedCategory }: { fixedCategory?: string }) {
         break;
     }
 
+    // Universal: in-stock products always first
+    sorted.sort((a, b) => {
+      if (a.stock > 0 && b.stock === 0) return -1;
+      if (a.stock === 0 && b.stock > 0) return 1;
+      return 0;
+    });
+
     return sorted;
   }, [fixedCategory, filters, query, sort]);
 

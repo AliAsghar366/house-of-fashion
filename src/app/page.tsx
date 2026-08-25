@@ -5,7 +5,7 @@ import { TrustBadges } from "@/components/TrustBadges";
 import { ProductGrid } from "@/components/ProductGrid";
 import { Newsletter } from "@/components/Newsletter";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
-import { products } from "@/data/products";
+import { products, sortInStockFirst } from "@/data/products";
 
 function QuickLinks() {
   const links = [
@@ -33,8 +33,8 @@ function QuickLinks() {
 }
 
 export default function Home() {
-  const bestsellers = products.filter((p) => p.isBestseller).slice(0, 8);
-  const newArrivals = products.filter((p) => p.isNew).slice(0, 8);
+  const bestsellers = sortInStockFirst(products.filter((p) => p.isBestseller)).slice(0, 8);
+  const newArrivals = sortInStockFirst(products.filter((p) => p.isNew)).slice(0, 8);
 
   return (
     <>

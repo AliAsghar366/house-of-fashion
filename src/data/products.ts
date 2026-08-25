@@ -463,18 +463,27 @@ export const products: Product[] = nicheConfigs.flatMap((config) =>
   generateProductsForNiche(config, config.productCount ?? 9)
 );
 
+// Universal sort: in-stock products first, sold-out after
+export function sortInStockFirst<T extends { stock: number }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    if (a.stock > 0 && b.stock === 0) return -1;
+    if (a.stock === 0 && b.stock > 0) return 1;
+    return 0;
+  });
+}
+
 export function getProduct(slug: string) {
   return products.find((p) => p.slug === slug);
 }
 
 export function getProductsByCategory(categorySlug: string) {
-  return products.filter((p) => p.category === categorySlug);
+  return sortInStockFirst(products.filter((p) => p.category === categorySlug));
 }
 
 export function getRelatedProducts(product: Product, count = 4) {
-  return products
-    .filter((p) => p.category === product.category && p.id !== product.id)
-    .slice(0, count);
+  return sortInStockFirst(
+    products.filter((p) => p.category === product.category && p.id !== product.id)
+  ).slice(0, count);
 }
 
 export { categories };

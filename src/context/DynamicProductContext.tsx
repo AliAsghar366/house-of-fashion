@@ -97,7 +97,11 @@ export function DynamicProductProvider({ children }: { children: ReactNode }) {
   }
 
   function getProductsByCategory(categorySlug: string) {
-    return products.filter((p) => p.category === categorySlug);
+    return [...products.filter((p) => p.category === categorySlug)].sort((a, b) => {
+      if (a.stock > 0 && b.stock === 0) return -1;
+      if (a.stock === 0 && b.stock > 0) return 1;
+      return 0;
+    });
   }
 
   return (
