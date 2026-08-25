@@ -4,10 +4,10 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Lock, Package, ShoppingCart, BarChart3, Tag,
+  Lock, Eye, EyeOff, Package, ShoppingCart, BarChart3, Tag,
   LogOut, ChevronDown, Check, X, Search, Filter, Plus, Trash2,
   Edit3, Save, Users, Globe, Monitor, Smartphone, Tablet,
-  ArrowLeft, ExternalLink, TrendingUp, Calendar, AlertCircle, ChevronRight, Eye,
+  ArrowLeft, ExternalLink, TrendingUp, Calendar, AlertCircle, ChevronRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrders, type Order, type OrderStatus } from "@/context/OrderContext";
@@ -964,32 +964,144 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
 }
 
 // ===================== MAIN ADMIN PAGE =====================
+// Brute force protection
+const ATTEMPTS_KEY = "hof_admin_attempts";
+const LOCKOUT_KEY = "hof_admin_lockout";
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 30 * 60 * 1000;
+
+function getAttempts(): { count: number; lockedUntil: number } {
+  try {
+    const raw = localStorage.getItem(ATTEMPTS_KEY);
+    const lockRaw = localStorage.getItem(LOCKOUT_KEY);
+    const lockedUntil = lockRaw ? parseInt(lockRaw) : 0;
+    if (lockedUntil > Date.now()) return { count: MAX_ATTEMPTS, lockedUntil };
+    return { count: raw ? parseInt(raw) : 0, lockedUntil: 0 };
+  } catch { return { count: 0, lockedUntil: 0 }; }
+}
+
+function recordAttempt() {
+  try {
+    const { count } = getAttempts();
+    localStorage.setItem(ATTEMPTS_KEY, String(count + 1));
+    if (count + 1 >= MAX_ATTEMPTS) localStorage.setItem(LOCKOUT_KEY, String(Date.now() + LOCKOUT_MS));
+  } catch {}
+}
+
+function clearAttempts() {
+  try {
+    localStorage.removeItem(ATTEMPTS_KEY);
+    localStorage.removeItem(LOCKOUT_KEY);
+  } catch {}
+}
+
+const ADMIN_SESSION_KEY = "hof_admin_session";
+
 export default function AdminPage() {
   const { user, profile, isAdmin, loading: authLoading, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>("orders");
+  const [adminAuthed, setAdminAuthed] = useState(false);
+  const [pw, setPw] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [pwError, setPwError] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fff8e7]">
-        <div className="animate-pulse text-[#191510]/50">Verifying access...</div>
-      </div>
-    );
+  useEffect(() => {
+    // Check if already admin-authed via password
+    const session = sessionStorage.getItem(ADMIN_SESSION_KEY);
+    if (session === "true") setAdminAuthed(true);
+    setHydrated(true);
+  }, []);
+
+  async function handlePasswordLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setPwError("");
+    const { lockedUntil } = getAttempts();
+    if (lockedUntil > Date.now()) {
+      const mins = Math.ceil((lockedUntil - Date.now()) / 60000);
+      setPwError(`Locked. Try again in ${mins}min.`);
+      return;
+    }
+    setPwLoading(true);
+    try {
+      // Hash the entered password
+      const encoder = new TextEncoder();
+      const data = encoder.encode(pw);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      const hashHex = Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+
+      // Fetch stored hash from Supabase
+      const { supabase } = await import("@/lib/supabase");
+      const { data: settings } = await supabase.from("admin_settings").select("password_hash").eq("id", 1).single();
+
+      if (settings && hashHex === settings.password_hash) {
+        clearAttempts();
+        sessionStorage.setItem(ADMIN_SESSION_KEY, "true");
+        setAdminAuthed(true);
+      } else {
+        recordAttempt();
+        const { count } = getAttempts();
+        const remaining = MAX_ATTEMPTS - count;
+        setPwError(remaining > 0 ? `Wrong password. ${remaining} tries left.` : "Locked for 30 minutes.");
+        setPw("");
+      }
+    } catch {
+      setPwError("Connection error. Try again.");
+    }
+    setPwLoading(false);
   }
 
-  // Must be signed in
-  if (!user) {
+  function handleLogout() {
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    setAdminAuthed(false);
+    setPw("");
+  }
+
+  if (!hydrated) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#fff8e7]"><div className="animate-pulse text-[#191510]/50">Loading...</div></div>;
+  }
+
+  // Password login form (no email needed)
+  if (!adminAuthed) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#fef3b0] via-[#fff8e7] to-[#61ce70]/20 px-4">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm text-center">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
           <div className="rounded-2xl border-2 border-[#191510]/10 bg-white p-8 shadow-xl">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#fef3b0] mb-4">
-              <Lock size={28} className="text-[#191510]" />
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#fef3b0] mb-4">
+                <Lock size={28} className="text-[#191510]" />
+              </div>
+              <h1 className="font-display text-3xl text-[#191510]">Admin Panel</h1>
+              <p className="text-sm text-[#191510]/60 mt-1">Enter admin password to continue</p>
             </div>
-            <h1 className="font-display text-3xl text-[#191510]">Admin Panel</h1>
-            <p className="text-sm text-[#191510]/60 mt-1 mb-6">Sign in with your admin account to continue</p>
-            <Link href="/auth/signin" className="inline-block w-full rounded-xl bg-[#191510] py-3 font-semibold text-[#fef3b0] hover:bg-[#191510]/85 transition-colors">
-              Sign In
-            </Link>
+            <form onSubmit={handlePasswordLogin} className="space-y-4">
+              <div>
+                <label className="text-sm font-semibold mb-1.5 block text-[#191510]">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPw ? "text" : "password"}
+                    value={pw}
+                    onChange={(e) => { setPw(e.target.value); setPwError(""); }}
+                    placeholder="Enter admin password"
+                    autoFocus
+                    className="w-full rounded-xl border-2 border-[#191510]/15 bg-white px-4 py-3 pr-12 text-sm outline-none focus:border-[#e8734a]"
+                  />
+                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#191510]/50 hover:text-[#191510]">
+                    {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+              {pwError && (
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-red-500 flex items-center gap-1">
+                  <AlertCircle size={14} /> {pwError}
+                </motion.p>
+              )}
+              <button type="submit" disabled={pwLoading} className="w-full rounded-xl bg-[#191510] py-3 font-semibold text-[#fef3b0] hover:bg-[#191510]/85 transition-colors disabled:opacity-50">
+                {pwLoading ? "Verifying..." : "Sign In"}
+              </button>
+            </form>
+            <p className="text-[10px] text-[#191510]/30 text-center mt-4">Default password: admin123</p>
             <Link href="/" className="mt-4 flex items-center justify-center gap-1 text-sm text-[#191510]/60 hover:text-[#191510]">
               <ArrowLeft size={14} /> Back to store
             </Link>
@@ -997,16 +1109,6 @@ export default function AdminPage() {
         </motion.div>
       </div>
     );
-  }
-
-  // Must be an admin (checked server-side in Supabase profiles table)
-  if (!isAdmin) {
-    return <AdminDenied onBack={() => {}} />;
-  }
-
-  async function handleLogout() {
-    await signOut();
-    window.location.href = "/";
   }
 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [

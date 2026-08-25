@@ -3,7 +3,6 @@
 -- Run this in Supabase SQL Editor
 -- ═══════════════════════════════════════════════════════════════
 
--- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
 -- ─── 1. User Profiles ─────────────────────────────────────────
@@ -20,7 +19,6 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
--- Auto-create profile on signup (with is_admin default false)
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -35,15 +33,31 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Grant admin access to specific users (run after signup)
--- UPDATE profiles SET is_admin = true WHERE email = 'your@email.com';
-
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- ─── 2. Orders (server-side) ──────────────────────────────────
+-- ─── 2. Admin Settings (password-only login) ─────────────────
+-- Password hash for admin login (default: "admin123")
+-- To change: UPDATE admin_settings SET password_hash = '<new_sha256_hash>';
+create table if not exists public.admin_settings (
+  id int primary key default 1,
+  password_hash text not null,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.admin_settings (id, password_hash)
+values (1, '240be518fabd2724ddb6f05eeb57ef4b491a0e68f68e1c53f91e5aa6e463b31f')
+on conflict (id) do nothing;
+
+alter table public.admin_settings enable row level security;
+create policy "admin_settings_public_read" on public.admin_settings for select using (true);
+create policy "admin_settings_admin_update" on public.admin_settings for update using (
+  exists (select 1 from public.profiles where id = auth.uid() and is_admin = true)
+);
+
+-- ─── 3. Orders ────────────────────────────────────────────────
 create table if not exists public.orders (
   id uuid primary key default uuid_generate_v4(),
   order_code text unique not null,
@@ -65,7 +79,7 @@ create table if not exists public.orders (
   updated_at timestamptz not null default now()
 );
 
--- ─── 3. Reviews ───────────────────────────────────────────────
+-- ─── 4. Reviews ───────────────────────────────────────────────
 create table if not exists public.reviews (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid references public.profiles(id) on delete cascade,
@@ -77,7 +91,7 @@ create table if not exists public.reviews (
   created_at timestamptz not null default now()
 );
 
--- ─── 4. Support Tickets ───────────────────────────────────────
+-- ─── 5. Support Tickets ───────────────────────────────────────
 create table if not exists public.support_tickets (
   id uuid primary key default uuid_generate_v4(),
   ticket_code text unique not null,
@@ -97,7 +111,7 @@ create table if not exists public.support_tickets (
   updated_at timestamptz not null default now()
 );
 
--- ─── 5. Wishlist (server-side) ────────────────────────────────
+-- ─── 6. Wishlist ──────────────────────────────────────────────
 create table if not exists public.wishlists (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid references public.profiles(id) on delete cascade,
@@ -107,7 +121,7 @@ create table if not exists public.wishlists (
 );
 
 -- ═══════════════════════════════════════════════════════════════
--- ROW LEVEL SECURITY (RLS)
+-- ROW LEVEL SECURITY
 -- ═══════════════════════════════════════════════════════════════
 
 alter table public.profiles enable row level security;
@@ -116,35 +130,27 @@ alter table public.reviews enable row level security;
 alter table public.support_tickets enable row level security;
 alter table public.wishlists enable row level security;
 
--- Profiles: users can read/update their own, everyone can read public profiles
 create policy "profiles_select_own" on public.profiles for select using (auth.uid() = id);
 create policy "profiles_update_own" on public.profiles for update using (auth.uid() = id);
 
--- Orders: users can see their own orders, admins need service_role
 create policy "orders_select_own" on public.orders for select using (auth.uid() = user_id);
 create policy "orders_insert_own" on public.orders for insert with check (auth.uid() = user_id or user_id is null);
+create policy "orders_track_by_code" on public.orders for select using (true);
 
--- Public order tracking (by order_code, no auth needed for tracking status)
-create policy "orders_track_by_code" on public.orders for select
-  using (true);  -- tracking page shows limited fields only
-
--- Reviews: anyone can read, only author can update/delete
 create policy "reviews_select_public" on public.reviews for select using (true);
 create policy "reviews_insert_own" on public.reviews for insert with check (auth.uid() = user_id);
 create policy "reviews_update_own" on public.reviews for update using (auth.uid() = user_id);
 create policy "reviews_delete_own" on public.reviews for delete using (auth.uid() = user_id);
 
--- Support tickets: users can see their own
 create policy "tickets_select_own" on public.support_tickets for select using (auth.uid() = user_id);
 create policy "tickets_insert_own" on public.support_tickets for insert with check (auth.uid() = user_id or user_id is null);
 
--- Wishlists: users can manage their own
 create policy "wishlists_select_own" on public.wishlists for select using (auth.uid() = user_id);
 create policy "wishlists_insert_own" on public.wishlists for insert with check (auth.uid() = user_id);
 create policy "wishlists_delete_own" on public.wishlists for delete using (auth.uid() = user_id);
 
 -- ═══════════════════════════════════════════════════════════════
--- INDEXES for performance
+-- INDEXES
 -- ═══════════════════════════════════════════════════════════════
 
 create index if not exists idx_orders_user on public.orders(user_id);
